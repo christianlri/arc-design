@@ -1,0 +1,121 @@
+name: rb_purchase_orders
+table_description: |
+  This table aggregates purchase order data, including country, SKU, supplier, warehouse, cost, and return information, for rebate calculations.
+
+  ### Key
+
+  PK:  Not explicitly defined, likely a composite key based on `order_id`, `sku`, and potentially other fields.
+
+  ### Partitioning column
+
+  ### Sources
+
+  - `fulfillment-dwh-production.cl_dmart.purchase_orders`
+  - `fulfillment-dwh-production.cl_dmart.warehouses_v2`
+  - `fulfillment-dwh-production.cl_dmart.sources`
+  - `fulfillment-dwh-production.dl_dmart.gsheet_gsh_srm_excise_tax``
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This table is re-created entirely every month with each run of `rebate-calculator-v1` DAG.
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - country_code: |
+      Two-letter alpha code identifying the country.
+  - order_id: |
+      Unique identifier for the purchase order.
+  - po_id: |
+      Purchase order ID.
+  - parent_purchase_order_id: |
+      ID of the parent purchase order, if applicable.
+  - created_date_local: |
+      Local timestamp when the purchase order was created.
+  - created_date: |
+      Timestamp when the purchase order was created, potentially adjusted for timezone.
+  - order_delivery_date: |
+      Local timestamp when the purchase order was fulfilled/delivered.
+  - purchase_order_status: |
+      Status of the purchase order.
+  - warehouse_id: |
+      ID of the warehouse associated with the purchase order.
+  - warehouse_name: |
+      Name of the warehouse.
+  - is_dmart: |
+      Indicates whether the warehouse is a DMart warehouse.
+  - warehouse_type: |
+      Categorizes the warehouse as 'DMART' or 'DISTRIBUTION CENTER'.
+  - sup_id: |
+      Supplier ID.
+  - product_name: |
+      Name of the product.
+  - sku: |
+      Stock Keeping Unit (SKU) of the product.
+  - excise_tax: |
+      Excise tax is a type of indirect tax levied on the sale or use of particular goods.
+  - gross_cost_without_vat: |
+      Gross cost of the product excluding VAT and excise tax.
+  - gross_cost: |
+      Gross cost of the product including VAT but excluding excise tax.
+  - gross_cost_eur: |
+      Gross cost of the product in Euros, including VAT.
+  - gross_cost_without_vat_euro: |
+      Gross cost of the product in Euros, excluding VAT.
+  - delivered_quantity: |
+      Quantity of the product delivered.
+  - ordered_quantity: |
+      Quantity of the product ordered.
+  - vat_rate: |
+      VAT rate applied to the product.
+  - return_status: |
+      Status of any returns associated with the purchase order.
+  - reason: |
+      Reason for return.
+  - return_id: |
+      Currently NULL, potentially for future use.
+  - returned_quantity: |
+      Quantity of the product returned.
+  - return_completed_at: |
+      Timestamp of when the return was completed.
+  - return_completed_at_local: |
+      Local timestamp of when the return was completed.
+  - trade_cost: |
+       NULL. Placeholder for trade cost information.
+  - fixed_discount: |
+       NULL. Placeholder for fixed discount information.
+  - extra_discount: |
+      NULL. Placeholder for extra discount information.
+  - fixed_vat: |
+      NULL. Placeholder for fixed VAT information.
+  - extra_vat: |
+      NULL. Placeholder for extra VAT information.
+  - internal_tax: |
+      NULL. Placeholder for internal tax information.
+  - min_sku_created_month: |
+      The earliest creation month for a given SKU and country.
+  - min_supp_created_month: |
+      The earliest creation month for a given supplier and country.
+  - min_sku_supp_created_month: |
+      The earliest creation month for a given SKU, supplier, and country combination.
+  - count_sku_supp_12_month: |
+      The number of distinct SKUs for a given supplier and country.
+template_params:
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa"'
+  exclude_service_warehouses_param: '"04e9f397-cd50-4f6c-8714-fa0f96b159fa|9cbe276c-9998-4cd6-8270-60eeeb3d3cf6|b02b35f5-5601-45d5-aa3c-7fdd074d746e|efd5e5cc-03dd-4c76-b8f2-7e2bc7f5ffbb|3d543720-f6af-4d07-a148-2d619adf39a0|a4006a22-ffaa-40bf-993c-929d30eaaf7b|902035cd-0d3d-4d23-90e2-7e6fa753fac1|5e71846a-2168-4fef-ba13-5f3e986b91f4|1376e28e-40a0-41ed-93f0-1af277793910"'
+  param_inbounded_country_code: '"ar|tr"'
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu
