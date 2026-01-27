@@ -171,7 +171,7 @@ columns:
   - tier_term_number
   - calculated_against
 template_params:
-  param_global_entity_id: '"HF_EG|PY_CL|FP_SG|FP_TH|NP_HU|GV_ES|TB_JO|TB_KW|TB_OM|PY_AR|PY_PE|TB_AE|TB_QA|YS_TR|GV_UA|GV_IT|TB_BH|FP_HK|FP_PH|HS_SA|PY_BO|PY_PY|PY_PA"'
+  param_global_entity_id: '"HF_EG|PY_CL|FP_SG|FP_TH|NP_HU|GV_ES|TB_JO|TB_KW|TB_OM|PY_AR|PY_PE|TB_AE|TB_QA|YS_TR|GV_UA|GV_IT|TB_BH|FP_HK|FP_PH|HS_SA|PY_BO|PY_PY|AP_PA"'
 is_stream: true
 backfill_chunks:
   is_enabled: true
