@@ -1,7 +1,4 @@
--- Progressive rebate debug for ONE contract term
--- param_month = 2025-12-01
--- country_code = kw
--- contract_term_id = a02QF00000Dw8lmYAB
+
 
 WITH date_params AS (
   SELECT
@@ -43,7 +40,7 @@ products AS (
     p.sku,
     p.sku_name,
     p.barcodes,
-    LOWER(p.country_code) AS country_code,
+    p.country_code,
     p.brand_name,
     p.categ_level_one,
     p.categ_level_two,
@@ -56,6 +53,7 @@ products AS (
     p.pim_brand_id,
     p.pim_category_id
   FROM `fulfillment-dwh-production.cl_dmart.rb_products` AS p
+    WHERE TRUE
   GROUP BY ALL
 )
 ,
@@ -65,8 +63,8 @@ contract_base AS (
     co.contract_term_id,
     co.sup_id,
     CAST(ps.principal_supplier_id AS STRING) AS principal_supplier_id_mapped,
-    COALESCE(CAST(ps.principal_supplier_id AS STRING), co.sup_id) AS sup_id_mapped,
-    LOWER(co.country_code) AS country_code,
+    COALESCE(CAST(ps.principal_supplier_id AS STRING),co.sup_id) AS sup_id_mapped,
+    co.country_code,
     co.contract_status,
     co.term_frequency,
     co.term_start_date,
@@ -87,8 +85,8 @@ contract_base AS (
     co.month
   FROM `dh-darkstores-live.christian_larosa.progressive_01_contract_dev` AS co
   LEFT JOIN param_supplier_mapping_cte AS ps
-    ON LOWER(co.country_code) = ps.country_code
-    AND co.sup_id = ps.division_supplier_id
+    ON co.country_code = ps.country_code
+    AND co.sup_id = CAST(ps.division_supplier_id AS STRING)
   WHERE TRUE
     AND co.month = '2025-12-01'
     AND LOWER(co.country_code) = 'kw'
@@ -117,21 +115,16 @@ contract_base AS (
       ELSE NULL
     END AS ideal_report_period_end_exclusive_datetime,
     CASE
-      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended')
-        AND DATE_TRUNC(co.term_start_date, MONTH) < DATE_SUB(DATE_TRUNC(dp.param_month, MONTH), INTERVAL 36 MONTH) THEN DATE_ADD(co.term_start_date, INTERVAL 3 YEAR)
-      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended')
-        AND DATE_TRUNC(co.term_start_date, MONTH) < DATE_SUB(DATE_TRUNC(dp.param_month, MONTH), INTERVAL 24 MONTH) THEN DATE_ADD(co.term_start_date, INTERVAL 2 YEAR)
-      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended')
-        AND DATE_TRUNC(co.term_start_date, MONTH) < DATE_SUB(DATE_TRUNC(dp.param_month, MONTH), INTERVAL 12 MONTH) THEN DATE_ADD(co.term_start_date, INTERVAL 1 YEAR)
+      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended') AND DATE_TRUNC(co.term_start_date, MONTH) < DATE_SUB(DATE_TRUNC(dp.param_month, MONTH), INTERVAL 36 MONTH) THEN DATE_ADD(co.term_start_date, INTERVAL 3 YEAR)
+      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended') AND DATE_TRUNC(co.term_start_date, MONTH) < DATE_SUB(DATE_TRUNC(dp.param_month, MONTH), INTERVAL 24 MONTH) THEN DATE_ADD(co.term_start_date, INTERVAL 2 YEAR)
+      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended') AND DATE_TRUNC(co.term_start_date, MONTH) < DATE_SUB(DATE_TRUNC(dp.param_month, MONTH), INTERVAL 12 MONTH) THEN DATE_ADD(co.term_start_date, INTERVAL 1 YEAR)
       ELSE co.term_start_date
     END AS effective_contract_start_date,
-    CASE
-      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended|Active')
-        AND REGEXP_CONTAINS(co.term_frequency, r'Quarterly') THEN DATE_TRUNC(LAST_DAY(DATE_TRUNC(dp.param_month, QUARTER), QUARTER), MONTH)
-      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended|Active')
-        AND REGEXP_CONTAINS(co.term_frequency, r'Monthly') THEN DATE_TRUNC(LAST_DAY(DATE_TRUNC(dp.param_month, MONTH), MONTH), MONTH)
-      WHEN REGEXP_CONTAINS(co.contract_status, r'Active|Active - Extended')
-        AND REGEXP_CONTAINS(co.term_frequency, r'Annually|One Time') THEN DATE_TRUNC(LAST_DAY(DATE_TRUNC(dp.param_month, YEAR), YEAR), MONTH)
+  CASE
+      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended|Active') AND REGEXP_CONTAINS(co.term_frequency, r'Quarterly') THEN DATE_TRUNC(LAST_DAY(DATE_TRUNC(dp.param_month, QUARTER), QUARTER), MONTH)
+      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended|Active') AND REGEXP_CONTAINS(co.term_frequency, r'Monthly') THEN DATE_TRUNC(LAST_DAY(DATE_TRUNC(dp.param_month, MONTH), MONTH), MONTH)
+      WHEN REGEXP_CONTAINS(co.contract_status, r'Active') AND REGEXP_CONTAINS(co.term_frequency, r'Annually|One Time') THEN DATE_TRUNC(LAST_DAY(DATE_TRUNC(dp.param_month, YEAR), YEAR), MONTH)
+      WHEN REGEXP_CONTAINS(co.contract_status, r'Active - Extended') AND REGEXP_CONTAINS(co.term_frequency, r'Annually|One Time') THEN DATE_TRUNC(LAST_DAY(DATE_TRUNC(dp.param_month, YEAR), YEAR), MONTH)
       WHEN co.contract_status = 'Active' THEN DATE_TRUNC(co.contract_enddate, MONTH)
       ELSE DATE(dp.param_month)
     END AS effective_contract_end_date,
@@ -144,10 +137,10 @@ contract_base AS (
 
 ,monthly_sku_calculations_2025 AS ( --without duplications, this is just the orderline data net purchases from the last year before the param_month
   SELECT
-    LOWER(oss.country_code) AS country_code,
+    oss.country_code,
     oss.sup_id,
     CAST(ps.principal_supplier_id AS STRING) AS principal_supplier_id_mapped,
-    COALESCE(CAST(ps.principal_supplier_id AS STRING), oss.sup_id) AS sup_id_mapped,
+    COALESCE(CAST(ps.principal_supplier_id AS STRING),oss.sup_id) AS sup_id_mapped,
     oss.sku,
     p.sku_name,
     p.brand_name,
@@ -163,14 +156,14 @@ contract_base AS (
     p.pim_category_id,
     p.sku_created_at,
     DATE_TRUNC(oss.received_local_time, MONTH) AS received_local_month,
-    IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0)
-      - IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0) AS net_amount
-  FROM `fulfillment-dwh-production.cl_dmart.rb_orderline_sku` AS oss
+    IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0) AS net_amount,
+    IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0) AS gross_amount
+  FROM `{{ params.project_id }}.{{ params.dataset.cl }}.rb_orderline_sku` AS oss
   LEFT JOIN param_supplier_mapping_cte AS ps
-    ON LOWER(oss.country_code) = ps.country_code
-    AND oss.sup_id = ps.division_supplier_id
+    ON oss.country_code = ps.country_code
+    AND oss.sup_id = CAST(ps.division_supplier_id AS STRING)
   LEFT JOIN products AS p
-    ON oss.sku = p.sku AND LOWER(oss.country_code) = p.country_code
+    ON oss.sku = p.sku AND oss.country_code = p.country_code
   CROSS JOIN date_params AS dp
   WHERE TRUE
     AND oss.month < '2026-01-01'
@@ -178,9 +171,9 @@ contract_base AS (
     AND sup_id in ('149','217')
     AND DATE_TRUNC(oss.received_local_time, MONTH) >= DATE_TRUNC(DATE_SUB(DATE(dp.param_month), INTERVAL 1 YEAR), YEAR)
   GROUP BY ALL
-)
+),
 
-,monthly_sku_calculations_2024 AS (
+monthly_sku_calculations_2024 AS (
   SELECT
     country_code,
     sup_id,
@@ -205,20 +198,33 @@ contract_base AS (
     DATE_SUB(received_local_month, INTERVAL 1 YEAR) AS received_local_month,
 
     -- net purchases del año anterior (65% del actual)
-    net_amount * 0.65 AS net_amount
+    net_amount * 0.65 AS net_amount,
+    gross_amount * 0.65 AS gross_amount
   FROM monthly_sku_calculations_2025
-)
+),
 
-,monthly_sku_calculations AS (
+monthly_sku_calculations AS (
   SELECT * FROM monthly_sku_calculations_2025
   UNION ALL
   SELECT * FROM monthly_sku_calculations_2024
-)
+),
 
-
-,last_two_years AS ( --basically multiplies purchases per sku lines by times of contract terms that there is per supplier and by times of tier numbers there is per ontract_term
+last_two_years AS ( 
+  --basically multiplies purchases per sku lines by times of contract terms that there is per supplier and by times of tier numbers there is per ontract_term
   SELECT
-    dp.*,
+    dp.param_month,
+    dp.current_month, 
+    dp.prev_month, 
+    dp.prev_year_month_start, 
+    dp.current_quarter_start, 
+    dp.prev_quarter_start, 
+    dp.prev_year_quarter_start, 
+    dp.current_quarter_end, 
+    dp.current_year_start, 
+    dp.prev_year_year_start, 
+    dp.current_year_end, 
+    dp.is_end_of_quarter, 
+    dp.is_end_of_year, 
     md.received_local_month,
     md.country_code,
     md.sup_id,
@@ -273,9 +279,8 @@ contract_base AS (
   LEFT JOIN adjusted_contract_dates AS acd
     ON co.contract_term_id = acd.contract_term_id
   WHERE md.received_local_month BETWEEN dp.prev_year_year_start AND dp.param_month
-)
-
-, sku_aggregated_data AS (
+),
+ sku_aggregated_data AS (
   SELECT
     lty.* EXCEPT(param_month, current_month, prev_month, prev_year_month_start, current_quarter_start, prev_quarter_start, prev_year_quarter_start, current_quarter_end, current_year_start, prev_year_year_start, current_year_end, is_end_of_quarter, is_end_of_year),
     lty.param_month, lty.current_month, lty.prev_month, lty.prev_year_month_start, lty.current_quarter_start, lty.prev_quarter_start, lty.prev_year_quarter_start, lty.current_quarter_end, lty.current_year_start, lty.prev_year_year_start, lty.current_year_end, lty.is_end_of_quarter, lty.is_end_of_year,
@@ -392,9 +397,8 @@ contract_base AS (
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_prev_year_sup_term
   FROM last_two_years AS lty
   GROUP BY ALL
-)
-
-,sku_sup_aggregated_data AS (
+),
+sku_sup_aggregated_data AS (
   SELECT DISTINCT
     ad.country_code,
     ad.sup_id,
@@ -462,7 +466,7 @@ contract_base AS (
     CASE
 
     --ABSOLUTE
-    -- We asume if its absolute then it should be compared against anything else than the term
+    -- We asume if its absolute then it should be compared against anything else than the threshold term itself
       WHEN ad.tier_thresholdtype = 'Absolute' THEN 
         CASE WHEN ad.term_frequency = 'Monthly' THEN ad.sum_net_amount_current_month_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency = 'Quarterly' THEN ad.sum_net_amount_current_quarter_sup_term - ad.tier_term_threshold
@@ -493,9 +497,8 @@ contract_base AS (
   WHERE ad.valid_sku_term <> 'not_valid'
     AND REGEXP_CONTAINS(ad.country_code, 'kw')
   GROUP BY ALL
-)
-
-,sup_aggregated_data AS (
+),
+sup_aggregated_data AS (
   SELECT
     suad.* EXCEPT( sku_created_at, valid_sku_term, prev_year_month_start, calculated_term_start_date, calculated_term_end_date, deviation_month_vs_prev_month_sup_term, deviation_month_vs_prev_year_month_sup_term, deviation_quarter_vs_prev_quarter, deviation_quarter_vs_prev_year, deviation_year_vs_prev_year),
     suad.sku_created_at, 
@@ -508,7 +511,6 @@ contract_base AS (
     suad.deviation_quarter_vs_prev_quarter,
     suad.deviation_quarter_vs_prev_year,
     suad.deviation_year_vs_prev_year,
-    
     ROW_NUMBER() OVER (
       PARTITION BY suad.country_code, suad.sup_id_mapped, suad.contract_term_id
       ORDER BY
@@ -543,44 +545,74 @@ suppliers AS (
 
 
 SELECT
-  country_code,
-  sup_id_mapped,
-  contract_term_id,
-  tier_term_number,
-  tier_thresholdtype,
-  tier_term_threshold,
-  tier_term_rebate_type,
-  tier_term_rebate,
-  term_frequency,
-  calculated_against,
-  -- the fields below exist after CTE 10/11
-  sum_net_amount_current_month_sup_term,
-  sum_net_amount_prev_month_sup_term,
-  sum_net_amount_prev_year_month_sup_term,
-  sum_net_amount_current_quarter_sup_term,
-  sum_net_amount_prev_quarter_sup_term,
-  sum_net_amount_prev_year_quarter_sup_term,
-  sum_net_amount_current_year_sup_term,
-  sum_net_amount_prev_year_sup_term,
-  diff_vs_target,
-  rn,
+  -- Final Output Columns, aligned to the Term-Tier level and format
+  supa.country_code,
+  supa.sup_id,
+  supa.principal_supplier_id_mapped,
+  supa.sup_id_mapped,
+  sp.supplier_name,
+  sp.supplier_finance_id,
+  supa.contract_term_id,
+  supa.contract_status,
+  supa.term_frequency,
+  supa.calculated_against,
+  supa.trading_term_cluster,
+  supa.rebate_currency,
+  supa.term_applicability,
+  supa.valid_terms,
+  supa.valid_sku_term,
+  supa.term_brand_category_name,
+  supa.tier_term_rebate_type,
+  supa.tier_term_rebate,
+  supa.tier_term_threshold,
+  supa.tier_thresholdtype,
+  supa.tier_term_number,
+  
+  -- Date Fields
+  supa.term_start_date,
+  supa.term_end_date,
+  supa.contract_enddate,
+  supa.contract_effective_enddate,
+  supa.calculated_term_start_date,
+  supa.calculated_term_end_date,
+  -- supa.sku_created_at, -- EXCLUDING 
+  supa.prev_year_month_start,
+
+  -- Calculated Net Amounts
+  supa.sum_net_amount_current_month_sup_term,
+  supa.sum_net_amount_prev_month_sup_term,
+  supa.sum_net_amount_prev_year_month_sup_term,
+  supa.sum_net_amount_current_quarter_sup_term,
+  supa.sum_net_amount_prev_quarter_sup_term,
+  supa.sum_net_amount_prev_year_quarter_sup_term,
+  supa.sum_net_amount_current_year_sup_term,
+  supa.sum_net_amount_prev_year_sup_term,
+  
+  -- Deviation Metrics
+  supa.deviation_month_vs_prev_month_sup_term,
+  supa.deviation_month_vs_prev_year_month_sup_term,
+  supa.deviation_quarter_vs_prev_quarter,
+  supa.deviation_quarter_vs_prev_year,
+  supa.deviation_year_vs_prev_year,
+
+  -- Final Flags and Values
+  supa.diff_vs_target,
+  supa.rn,
   CASE
-    WHEN COALESCE(diff_vs_target, 0) > 0 AND rn = 1 THEN 'valid_progressive_rebate'
+    WHEN COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 THEN 'valid_progressive_rebate'
   END AS valid_progressive_flag,
   CASE
-    WHEN tier_term_rebate_type = 'Absolute'
-      AND COALESCE(diff_vs_target, 0) > 0 AND rn = 1
-      THEN tier_term_rebate
-    WHEN tier_term_rebate_type = 'Percentage'
-      AND COALESCE(diff_vs_target, 0) > 0 AND rn = 1 AND term_frequency = 'Monthly'
-      THEN (tier_term_rebate / 100) * sum_net_amount_current_month_sup_term
-    WHEN tier_term_rebate_type = 'Percentage'
-      AND COALESCE(diff_vs_target, 0) > 0 AND rn = 1 AND term_frequency = 'Quarterly'
-      THEN (tier_term_rebate / 100) * sum_net_amount_current_quarter_sup_term
-    WHEN tier_term_rebate_type = 'Percentage'
-      AND COALESCE(diff_vs_target, 0) > 0 AND rn = 1 AND term_frequency IN ('Annually', 'One Time')
-      THEN (tier_term_rebate / 100) * sum_net_amount_current_year_sup_term
+      WHEN supa.tier_term_rebate_type = 'Absolute' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 THEN supa.tier_term_rebate
+      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency = 'Monthly' THEN 
+          (supa.tier_term_rebate / 100) * supa.sum_net_amount_current_month_sup_term
+      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency = 'Quarterly' THEN 
+          (supa.tier_term_rebate / 100) * supa.sum_net_amount_current_quarter_sup_term 
+      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency IN ('Annually', 'One Time') THEN 
+          (supa.tier_term_rebate / 100) * supa.sum_net_amount_current_year_sup_term
+      ELSE NULL
   END AS calculated_progressive_rebate,
   DATE('2025-12-01') AS month
-FROM sup_aggregated_data
-ORDER BY CAST(tier_term_number AS INT64);
+FROM sup_aggregated_data AS supa
+LEFT JOIN suppliers AS sp
+  ON supa.country_code = sp.country_code
+  AND supa.sup_id = sp.sup_id

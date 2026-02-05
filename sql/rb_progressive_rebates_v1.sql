@@ -17,10 +17,12 @@ WITH date_params AS (
     EXTRACT(MONTH FROM DATE('{{ param_month }}')) = 12 AS is_end_of_year
 ),
 param_supplier_mapping_cte AS (
-    SELECT
-        psm.*
-    FROM `{{ params.project_id }}.{{ params.dataset.dl }}.gsheet_gsh_srm_principal_division_allocation`  AS psm
-    GROUP BY ALL
+  SELECT
+    LOWER(country_code) AS country_code,
+    CAST(division_supplier_id AS STRING) AS division_supplier_id,
+    CAST(principal_supplier_id AS STRING) AS principal_supplier_id
+  FROM `fulfillment-dwh-production.dl_dmart.gsheet_gsh_srm_principal_division_allocation`
+  WHERE TRUE
 ),
 currency AS (
   SELECT
