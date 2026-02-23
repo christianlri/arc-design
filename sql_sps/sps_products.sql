@@ -784,25 +784,21 @@ joined_data AS (
         PARTITION BY ssw.global_entity_id, ssw.warehouse_id, ssw.sku_id 
         ORDER BY ssw.updated_at DESC
     ) = 1
-), 
-parent_list AS (
-    SELECT sup_id_parent, global_entity_id
-    FROM joined_data 
-    WHERE sup_id_parent != '_unknown_'
-    AND sup_id_parent != supplier_id 
-    GROUP BY 1,2
 )
 -- Final Output
 SELECT 
     jd.*,
     -- Label Division based on the calculated sup_id_parent from the join
     CASE 
-        WHEN pl.sup_id_parent IS NULL THEN 'Division' 
+        WHEN jd.sup_id_parent = jd.supplier_id THEN 'Division'
         ELSE NULL 
     END AS division_type,
-    -- Label Parent based on the final list
-    IF(pl.sup_id_parent IS NOT NULL, TRUE, FALSE) AS is_parent_supplier
+    -- A supplier is a "parent" if it appears in the sup_id_parent column for *other* suppliers.
+    -- We can check this with an EXISTS subquery, which is often more efficient than a JOIN for this pattern.
+    EXISTS (
+        SELECT 1 FROM joined_data AS parent_check
+        WHERE parent_check.global_entity_id = jd.global_entity_id
+          AND parent_check.sup_id_parent = jd.supplier_id
+          AND parent_check.supplier_id != jd.supplier_id
+    ) AS is_parent_supplier
 FROM joined_data jd
-LEFT JOIN parent_list pl 
-    ON jd.global_entity_id = pl.global_entity_id
-    AND jd.supplier_id = pl.sup_id_parent

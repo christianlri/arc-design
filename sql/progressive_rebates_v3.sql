@@ -1,4 +1,5 @@
-
+CREATE OR REPLACE TABLE `dh-darkstores-live.christian_larosa.rb_progressive_rebates_dev`
+AS
 
 WITH date_params AS (
   SELECT
@@ -17,7 +18,7 @@ WITH date_params AS (
     EXTRACT(MONTH FROM DATE('2025-12-01')) = 12 AS is_end_of_year
 ),
 
--- This CTE retrieves the mapping between division suppliers and principal suppliers.
+-- ✅ REAL mapping table (no placeholder)
 param_supplier_mapping_cte AS (
   SELECT
     LOWER(country_code) AS country_code,
@@ -27,7 +28,6 @@ param_supplier_mapping_cte AS (
   WHERE TRUE
 ),
 
--- This CTE gets the currency for each country.
 currency AS (
   SELECT
     cr.currency_iso_code AS rebate_currency,
@@ -36,7 +36,6 @@ currency AS (
   GROUP BY ALL
 ),
 
--- This CTE gathers detailed product information.
 products AS (
   SELECT
     p.sku,
@@ -60,8 +59,6 @@ products AS (
 )
 ,
 
--- This CTE retrieves base contract information for 'progressive_terms' for a specific month and country.
--- It also maps the supplier ID to a principal supplier ID if one exists.
 contract_base AS (
   SELECT
     co.contract_term_id,
@@ -87,18 +84,16 @@ contract_base AS (
     co.tier_thresholdtype,
     co.tier_term_number,
     co.month
-  FROM `dh-darkstores-live.christian_larosa.progressive_01_contract_dev` AS co
+  FROM `fulfillment-dwh-production.cl_dmart.rb_contract_info` AS co
   LEFT JOIN param_supplier_mapping_cte AS ps
     ON co.country_code = ps.country_code
     AND co.sup_id = CAST(ps.division_supplier_id AS STRING)
   WHERE TRUE
     AND co.month = '2025-12-01'
-    AND LOWER(co.country_code) = 'kw'
+    AND LOWER(co.country_code) in ('kw','sg')
   GROUP BY ALL
 )
 
--- This CTE calculates the effective start and end dates for contracts.
--- It adjusts dates based on the term frequency (Monthly, Quarterly, etc.) and the contract status (e.g., 'Active - Extended').
 , adjusted_contract_dates AS (
   SELECT
     co.contract_term_id,
@@ -141,8 +136,7 @@ contract_base AS (
   GROUP BY ALL
 )
 
--- This CTE calculates the monthly net and gross purchase amounts per SKU for the year 2025.
--- It serves as the base transactional data for the current year in this test script.
+,monthly_sku_calculations AS ( --without duplications, this is just the orderline data net purchases from the last year before the param_month
   SELECT
     oss.country_code,
     oss.sup_id,
@@ -165,7 +159,7 @@ contract_base AS (
     DATE_TRUNC(oss.received_local_time, MONTH) AS received_local_month,
     IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0) AS net_amount,
     IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0) AS gross_amount
-  FROM `{{ params.project_id }}.{{ params.dataset.cl }}.rb_orderline_sku` AS oss
+  FROM `fulfillment-dwh-production.cl_dmart.rb_orderline_sku` AS oss
   LEFT JOIN param_supplier_mapping_cte AS ps
     ON oss.country_code = ps.country_code
     AND oss.sup_id = CAST(ps.division_supplier_id AS STRING)
@@ -174,53 +168,50 @@ contract_base AS (
   CROSS JOIN date_params AS dp
   WHERE TRUE
     AND oss.month < '2026-01-01'
-    AND LOWER(oss.country_code) = 'kw'
-    AND sup_id in ('149','217')
+    AND LOWER(oss.country_code) in ('kw','sg')
+    --AND sup_id in ('149','217')
     AND DATE_TRUNC(oss.received_local_time, MONTH) >= DATE_TRUNC(DATE_SUB(DATE(dp.param_month), INTERVAL 1 YEAR), YEAR)
   GROUP BY ALL
 ),
 
--- This CTE simulates purchase data for 2024.
--- It takes the 2025 data, shifts the dates back by one year, and scales the purchase amounts down to 65% of the 2025 values.
-monthly_sku_calculations_2024 AS (
-  SELECT
-    country_code,
-    sup_id,
-    principal_supplier_id_mapped,
-    sup_id_mapped,
-    sku,
-    sku_name,
-    brand_name,
-    categ_level_one,
-    categ_level_two,
-    categ_level_three,
-    categ_level_four,
-    categ_level_five,
-    categ_level_six,
-    barcodes,
-    pim_product_id,
-    pim_brand_id,
-    pim_category_id,
-    sku_created_at,
+-- monthly_sku_calculations_2024 AS (
+--   SELECT
+--     country_code,
+--     sup_id,
+--     principal_supplier_id_mapped,
+--     sup_id_mapped,
+--     sku,
+--     sku_name,
+--     brand_name,
+--     categ_level_one,
+--     categ_level_two,
+--     categ_level_three,
+--     categ_level_four,
+--     categ_level_five,
+--     categ_level_six,
+--     barcodes,
+--     pim_product_id,
+--     pim_brand_id,
+--     pim_category_id,
+--     sku_created_at,
 
-    -- mismo mes, año anterior
-    DATE_SUB(received_local_month, INTERVAL 1 YEAR) AS received_local_month,
+--     -- mismo mes, año anterior
+--     DATE_SUB(received_local_month, INTERVAL 1 YEAR) AS received_local_month,
 
-    -- net purchases del año anterior (65% del actual)
-    net_amount * 0.65 AS net_amount,
-    gross_amount * 0.65 AS gross_amount
-  FROM monthly_sku_calculations_2025
-),
+--     -- net purchases del año anterior (65% del actual)
+--     net_amount * 0.65 AS net_amount,
+--     gross_amount * 0.65 AS gross_amount
+--   FROM monthly_sku_calculations_2025
+-- ),
 
--- This CTE combines the actual 2025 purchase data with the simulated 2024 data to create a two-year dataset.
-monthly_sku_calculations AS (
-  SELECT * FROM monthly_sku_calculations_2025
-  UNION ALL
-  SELECT * FROM monthly_sku_calculations_2024
-),
+-- monthly_sku_calculations_prev AS (
+--   SELECT * FROM monthly_sku_calculations_2025
+--   UNION ALL
+--   SELECT * FROM monthly_sku_calculations_2024
+-- ),
 
--- This CTE joins the two-year purchase data with the relevant contract terms.
--- It creates a comprehensive dataset containing every SKU purchase alongside the contract and tier details that might apply to it.
+last_two_years AS ( 
+  --basically multiplies purchases per sku lines by times of contract terms that there is per supplier and by times of tier numbers there is per ontract_term
   SELECT
     dp.param_month,
     dp.current_month, 
@@ -290,14 +281,12 @@ monthly_sku_calculations AS (
     ON co.contract_term_id = acd.contract_term_id
   WHERE md.received_local_month BETWEEN dp.prev_year_year_start AND dp.param_month
 ),
- -- This CTE performs two key tasks:
- -- 1. `valid_sku_term`: It flags whether a specific SKU purchase is valid for a given contract term based on its applicability (e.g., Brand, Category, All products).
- -- 2. Window Functions: It calculates the sum of `net_amount` over various time periods (current/previous month, quarter, year) for each contract term and tier. The calculation only includes amounts from valid SKUs.
  sku_aggregated_data AS (
   SELECT
     lty.* EXCEPT(param_month, current_month, prev_month, prev_year_month_start, current_quarter_start, prev_quarter_start, prev_year_quarter_start, current_quarter_end, current_year_start, prev_year_year_start, current_year_end, is_end_of_quarter, is_end_of_year),
     lty.param_month, lty.current_month, lty.prev_month, lty.prev_year_month_start, lty.current_quarter_start, lty.prev_quarter_start, lty.prev_year_quarter_start, lty.current_quarter_end, lty.current_year_start, lty.prev_year_year_start, lty.current_year_end, lty.is_end_of_quarter, lty.is_end_of_year,
     
+    -- Original SKU validation flag
     CASE
       WHEN lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id) THEN '2_valid_brand'
       WHEN lty.term_applicability = 'Category' AND (LOWER(lty.brand_category_pim) = LOWER(lty.pim_category_id)) THEN '3_valid_categ'
@@ -311,6 +300,7 @@ monthly_sku_calculations AS (
       ELSE 'not_valid'
     END AS valid_sku_term,
     
+    -- APPLYING THE FILTER LOGIC TO ALL WINDOW SUMS:
     SUM(CASE WHEN lty.received_local_month = lty.current_month AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -409,10 +399,6 @@ monthly_sku_calculations AS (
   FROM last_two_years AS lty
   GROUP BY ALL
 ),
--- This CTE aggregates the data to the supplier-term-tier level.
--- It calculates deviation metrics (e.g., month-over-month growth) to show performance.
--- The `diff_vs_target` column is the most critical calculation here; it determines if the performance has met or exceeded the threshold for each rebate tier.
--- A positive `diff_vs_target` means the tier's condition is met.
 sku_sup_aggregated_data AS (
   SELECT DISTINCT
     ad.country_code,
@@ -478,29 +464,29 @@ sku_sup_aggregated_data AS (
     END AS deviation_year_vs_prev_year,
 
     -- Diff vs Target Calculation
-    -- This logic determines if a rebate tier's target has been met.
     CASE
 
-      -- For 'Absolute' thresholds, it's a direct comparison of performance vs. the threshold value.
+    --ABSOLUTE
+    -- We asume if its absolute then it should be compared against anything else than the threshold term itself
       WHEN ad.tier_thresholdtype = 'Absolute' THEN 
         CASE WHEN ad.term_frequency = 'Monthly' THEN ad.sum_net_amount_current_month_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency = 'Quarterly' THEN ad.sum_net_amount_current_quarter_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN ad.sum_net_amount_current_year_sup_term - ad.tier_term_threshold END
       
-      -- For 'Percentage' thresholds, it calculates the growth rate and compares it to the target percentage.
-      -- If `calculated_against` is NULL, it defaults to 'Same Period Last Year'.
+      --PERCENTAGE
+      -- We asume that if the calculated_against field in SRM is not filled then BY DEFAULT is year over year growth vs the term itself 
       WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against IS NULL THEN 
         CASE WHEN ad.term_frequency = 'Monthly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_month_sup_term , ad.sum_net_amount_prev_year_month_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency = 'Quarterly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_quarter_sup_term , ad.sum_net_amount_prev_year_quarter_sup_term)-1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN (SAFE_DIVIDE(ad.sum_net_amount_current_year_sup_term , ad.sum_net_amount_prev_year_sup_term)-1)-SAFE_DIVIDE(ad.tier_term_threshold,100) END
 
-      -- Compares performance against the same period in the previous year.
+      --VS SAME PERIOD LAST YEAR, QUARTER VS PREVIOUS YEAR SAME QUARTER, MONTH VS PREVIOUS YEAR SAME QUARTER, YEAR VS PREVIOUS YEAR
       WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against = 'Same Period Last Year' THEN
         CASE WHEN ad.term_frequency = 'Monthly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_month_sup_term , ad.sum_net_amount_prev_year_month_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency = 'Quarterly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_quarter_sup_term , ad.sum_net_amount_prev_year_quarter_sup_term)-1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN (SAFE_DIVIDE(ad.sum_net_amount_current_year_sup_term , ad.sum_net_amount_prev_year_sup_term)-1)-SAFE_DIVIDE(ad.tier_term_threshold,100) END
 
-      -- Compares performance against the immediately preceding period (e.g., current quarter vs. previous quarter).
+      --VS CORRESPONDING LAST PERIOD i.e. Q3 vs Q2, M10 vs M9, Y2 vs Y1
       WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against = 'Previous Period' THEN
         CASE WHEN ad.term_frequency = 'Monthly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_month_sup_term, ad.sum_net_amount_prev_month_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency = 'Quarterly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_quarter_sup_term, ad.sum_net_amount_prev_quarter_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
@@ -510,12 +496,10 @@ sku_sup_aggregated_data AS (
 
   FROM sku_aggregated_data AS ad
   WHERE ad.valid_sku_term <> 'not_valid'
-    AND REGEXP_CONTAINS(ad.country_code, 'kw')
+    --AND REGEXP_CONTAINS(ad.country_code, 'kw')
+    AND LOWER(ad.country_code) in ('kw','sg')
   GROUP BY ALL
 ),
--- This CTE identifies the highest-achieved rebate tier for each contract term.
--- It uses `ROW_NUMBER()` to assign a rank (`rn`) to each tier.
--- The ranking prioritizes tiers where the target was met (`diff_vs_target >= 0`) and then selects the highest tier number/threshold among those. The best-achieved tier will have `rn = 1`.
 sup_aggregated_data AS (
   SELECT
     suad.* EXCEPT( sku_created_at, valid_sku_term, prev_year_month_start, calculated_term_start_date, calculated_term_end_date, deviation_month_vs_prev_month_sup_term, deviation_month_vs_prev_year_month_sup_term, deviation_quarter_vs_prev_quarter, deviation_quarter_vs_prev_year, deviation_year_vs_prev_year),
@@ -545,7 +529,6 @@ sup_aggregated_data AS (
   GROUP BY ALL
 ),
 
--- This CTE retrieves supplier details like name and finance ID.
 suppliers AS (
   SELECT
     ps.country_code,
@@ -557,16 +540,15 @@ suppliers AS (
   LEFT JOIN UNNEST(s.warehouses) AS w
   WHERE TRUE
     -- AND s.is_preferred IS TRUE
-    AND REGEXP_CONTAINS(ps.country_code, 'kw')
+    ---AND REGEXP_CONTAINS(ps.country_code, 'kw ')
+    AND LOWER(ps.country_code) in ('kw','sg')
   GROUP BY ALL
 )
 
 
--- This is the final SELECT statement that constructs the output.
--- It joins the aggregated data with supplier information.
--- It flags the valid rebate using `valid_progressive_flag` for the tier where `rn = 1` and the target was met.
--- Finally, it calculates the `calculated_progressive_rebate` amount based on the rebate type (Absolute or Percentage) of the winning tier.
+
 SELECT
+  -- Final Output Columns, aligned to the Term-Tier level and format
   supa.country_code,
   supa.sup_id,
   supa.principal_supplier_id_mapped,
