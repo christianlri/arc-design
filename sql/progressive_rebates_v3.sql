@@ -17,7 +17,6 @@ WITH date_params AS (
     EXTRACT(MONTH FROM DATE('2025-12-01')) IN (3, 6, 9, 12) AS is_end_of_quarter,
     EXTRACT(MONTH FROM DATE('2025-12-01')) = 12 AS is_end_of_year
 ),
-
 -- ✅ REAL mapping table (no placeholder)
 param_supplier_mapping_cte AS (
   SELECT
@@ -27,7 +26,6 @@ param_supplier_mapping_cte AS (
   FROM `fulfillment-dwh-production.dl_dmart.gsheet_gsh_srm_principal_division_allocation`
   WHERE TRUE
 ),
-
 currency AS (
   SELECT
     cr.currency_iso_code AS rebate_currency,
@@ -35,7 +33,6 @@ currency AS (
   FROM `fulfillment-dwh-production.curated_data_shared_coredata.global_entities` AS cr
   GROUP BY ALL
 ),
-
 products AS (
   SELECT
     p.sku,
@@ -56,9 +53,7 @@ products AS (
   FROM `fulfillment-dwh-production.cl_dmart.rb_products` AS p
     WHERE TRUE
   GROUP BY ALL
-)
-,
-
+),
 contract_base AS (
   SELECT
     co.contract_term_id,
@@ -92,9 +87,8 @@ contract_base AS (
     AND co.month = '2025-12-01'
     AND LOWER(co.country_code) in ('kw','sg')
   GROUP BY ALL
-)
-
-, adjusted_contract_dates AS (
+),
+ adjusted_contract_dates AS (
   SELECT
     co.contract_term_id,
     co.contract_status,
@@ -134,9 +128,8 @@ contract_base AS (
   FROM contract_base AS co
   CROSS JOIN date_params AS dp
   GROUP BY ALL
-)
-
-,monthly_sku_calculations AS ( --without duplications, this is just the orderline data net purchases from the last year before the param_month
+),
+monthly_sku_calculations AS ( --without duplications, this is just the orderline data net purchases from the last year before the param_month
   SELECT
     oss.country_code,
     oss.sup_id,
@@ -173,43 +166,6 @@ contract_base AS (
     AND DATE_TRUNC(oss.received_local_time, MONTH) >= DATE_TRUNC(DATE_SUB(DATE(dp.param_month), INTERVAL 1 YEAR), YEAR)
   GROUP BY ALL
 ),
-
--- monthly_sku_calculations_2024 AS (
---   SELECT
---     country_code,
---     sup_id,
---     principal_supplier_id_mapped,
---     sup_id_mapped,
---     sku,
---     sku_name,
---     brand_name,
---     categ_level_one,
---     categ_level_two,
---     categ_level_three,
---     categ_level_four,
---     categ_level_five,
---     categ_level_six,
---     barcodes,
---     pim_product_id,
---     pim_brand_id,
---     pim_category_id,
---     sku_created_at,
-
---     -- mismo mes, año anterior
---     DATE_SUB(received_local_month, INTERVAL 1 YEAR) AS received_local_month,
-
---     -- net purchases del año anterior (65% del actual)
---     net_amount * 0.65 AS net_amount,
---     gross_amount * 0.65 AS gross_amount
---   FROM monthly_sku_calculations_2025
--- ),
-
--- monthly_sku_calculations_prev AS (
---   SELECT * FROM monthly_sku_calculations_2025
---   UNION ALL
---   SELECT * FROM monthly_sku_calculations_2024
--- ),
-
 last_two_years AS ( 
   --basically multiplies purchases per sku lines by times of contract terms that there is per supplier and by times of tier numbers there is per ontract_term
   SELECT
@@ -465,14 +421,12 @@ sku_sup_aggregated_data AS (
 
     -- Diff vs Target Calculation
     CASE
-
     --ABSOLUTE
     -- We asume if its absolute then it should be compared against anything else than the threshold term itself
       WHEN ad.tier_thresholdtype = 'Absolute' THEN 
         CASE WHEN ad.term_frequency = 'Monthly' THEN ad.sum_net_amount_current_month_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency = 'Quarterly' THEN ad.sum_net_amount_current_quarter_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN ad.sum_net_amount_current_year_sup_term - ad.tier_term_threshold END
-      
       --PERCENTAGE
       -- We asume that if the calculated_against field in SRM is not filled then BY DEFAULT is year over year growth vs the term itself 
       WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against IS NULL THEN 
@@ -485,15 +439,12 @@ sku_sup_aggregated_data AS (
         CASE WHEN ad.term_frequency = 'Monthly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_month_sup_term , ad.sum_net_amount_prev_year_month_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency = 'Quarterly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_quarter_sup_term , ad.sum_net_amount_prev_year_quarter_sup_term)-1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN (SAFE_DIVIDE(ad.sum_net_amount_current_year_sup_term , ad.sum_net_amount_prev_year_sup_term)-1)-SAFE_DIVIDE(ad.tier_term_threshold,100) END
-
       --VS CORRESPONDING LAST PERIOD i.e. Q3 vs Q2, M10 vs M9, Y2 vs Y1
       WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against = 'Previous Period' THEN
         CASE WHEN ad.term_frequency = 'Monthly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_month_sup_term, ad.sum_net_amount_prev_month_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency = 'Quarterly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_quarter_sup_term, ad.sum_net_amount_prev_quarter_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN (SAFE_DIVIDE(ad.sum_net_amount_current_year_sup_term, ad.sum_net_amount_prev_year_sup_term)- 1) -SAFE_DIVIDE(ad.tier_term_threshold,100) END
-
     END AS diff_vs_target,
-
   FROM sku_aggregated_data AS ad
   WHERE ad.valid_sku_term <> 'not_valid'
     --AND REGEXP_CONTAINS(ad.country_code, 'kw')
@@ -516,26 +467,22 @@ sup_aggregated_data AS (
     ROW_NUMBER() OVER (
       PARTITION BY suad.country_code, suad.sup_id_mapped, suad.contract_term_id
       ORDER BY
-        CASE
-          WHEN suad.diff_vs_target IS NOT NULL AND suad.diff_vs_target >= 0 THEN 1
+        CASE WHEN suad.diff_vs_target IS NOT NULL AND suad.diff_vs_target >= 0 THEN 1
           ELSE 0
         END DESC,
         SAFE_CAST(suad.tier_term_number AS INT64) DESC,
         suad.tier_term_threshold DESC
     ) AS rn
-
-
   FROM sku_sup_aggregated_data AS suad
   GROUP BY ALL
 ),
-
 suppliers AS (
   SELECT
     ps.country_code,
     CAST(s.supplier_id AS STRING) AS sup_id,
     CAST(s.supplier_finance_id AS STRING) AS supplier_finance_id,
     CAST(s.supplier_name AS STRING) AS supplier_name
-  FROM `fulfillment-dwh-production.curated_data_shared_dmart.products_suppliers` AS ps
+FROM `fulfillment-dwh-production.curated_data_shared_dmart.products_suppliers` AS ps
   LEFT JOIN UNNEST(ps.suppliers) AS s
   LEFT JOIN UNNEST(s.warehouses) AS w
   WHERE TRUE
@@ -544,9 +491,6 @@ suppliers AS (
     AND LOWER(ps.country_code) in ('kw','sg')
   GROUP BY ALL
 )
-
-
-
 SELECT
   -- Final Output Columns, aligned to the Term-Tier level and format
   supa.country_code,
