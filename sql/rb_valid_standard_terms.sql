@@ -64,7 +64,11 @@ term_periods AS (
  SELECT
    co.contract_term_id,
    co.term_frequency,
+   co.country_code,
    CASE
+     -- EXCEPCIÓN PARA PAÍSES CON CÁLCULO MENSUAL: Forzar el período de reporte a ser siempre mensual.
+     WHEN REGEXP_CONTAINS(co.country_code, {{ params.param_country_accrual }})
+     THEN CAST(DATE_TRUNC('{{ param_month }}', MONTH) AS DATETIME)
      WHEN REGEXP_CONTAINS(co.term_frequency, r'Monthly')
      THEN CAST(DATE_TRUNC('{{ param_month }}', MONTH) AS DATETIME)
      WHEN REGEXP_CONTAINS(co.term_frequency, r'Quarterly')
@@ -74,6 +78,9 @@ term_periods AS (
      ELSE NULL
    END AS ideal_report_period_start_datetime,
    CASE
+     -- EXCEPCIÓN PARA PAÍSES CON CÁLCULO MENSUAL: Forzar el período de reporte a ser siempre mensual.
+     WHEN REGEXP_CONTAINS(co.country_code, {{ params.param_country_accrual }})
+     THEN CAST(DATE_ADD(LAST_DAY('{{ param_month }}', MONTH), INTERVAL 1 DAY) AS DATETIME)
      WHEN REGEXP_CONTAINS(co.term_frequency, r'Monthly')
      THEN CAST(DATE_ADD(LAST_DAY('{{ param_month }}', MONTH), INTERVAL 1 DAY) AS DATETIME)
      WHEN REGEXP_CONTAINS(co.term_frequency, r'Quarterly')
@@ -244,12 +251,12 @@ SELECT
      /*Calculate the effective term start/end dates by intersecting adjusted contract dates with ideal report period*/
      GREATEST(acd.effective_contract_start_date, DATE(tp.ideal_report_period_start_datetime)) AS calculated_term_start_date,
      DATE(LEAST(acd.effective_contract_end_date, DATE(tp.ideal_report_period_end_exclusive_datetime))) AS calculated_term_end_date,
-           -- NEW: Flag to determine if param_month falls into the final month of the term's frequency period
-     -- This ensures rebates for Quarterly/Annually terms are calculated only in the last month of that period.
+     -- Flag to determine if param_month is the final month of the term's frequency period.
+     -- This ensures rebates for Quarterly/Annually terms are calculated only at the end of their period.
+     -- EXCEPCIÓN: Para países como Turquía, esta bandera es siempre TRUE para forzar el cálculo mensual.
      CASE
-       WHEN REGEXP_CONTAINS(co.term_frequency, r'Monthly')
-         AND DATE_TRUNC('{{ param_month }}', MONTH) = DATE_TRUNC(LAST_DAY('{{ param_month }}', MONTH), MONTH)
-           THEN TRUE
+       WHEN REGEXP_CONTAINS(co.country_code, {{ params.param_country_accrual }}) THEN TRUE
+       WHEN REGEXP_CONTAINS(co.term_frequency, r'Monthly') THEN TRUE
        WHEN REGEXP_CONTAINS(co.term_frequency, r'Quarterly')
          AND DATE_TRUNC('{{ param_month }}', MONTH) = DATE_TRUNC(LAST_DAY('{{ param_month }}', QUARTER), MONTH)
            THEN TRUE
@@ -380,15 +387,15 @@ SELECT
      AND ol.sku = mo.sku
      AND ol.month = mo.received_local_month
    WHERE TRUE
+     -- Filtro de fechas para las órdenes.
      AND (
-       (REGEXP_CONTAINS(LOWER(co.term_frequency), r'monthly')
-         AND ol.month = DATE('{{ param_month }}'))
+       -- EXCEPCIÓN: Para países como Turquía, solo se consideran las compras del mes actual.
+       (REGEXP_CONTAINS(co.country_code, {{ params.param_country_accrual }}) AND ol.month = DATE('{{ param_month }}'))
        OR
-       (REGEXP_CONTAINS(LOWER(co.term_frequency), r'quarterly')
-         AND ol.month IN (SELECT month FROM quarter_months))
-       OR
-       (REGEXP_CONTAINS(LOWER(co.term_frequency), r'annually|one time')
-         AND ol.month IN (SELECT month FROM year_months))
+       -- Lógica original para el resto de los países.
+       (NOT REGEXP_CONTAINS(co.country_code, {{ params.param_country_accrual }}) AND REGEXP_CONTAINS(LOWER(co.term_frequency), r'monthly') AND ol.month = DATE('{{ param_month }}')) OR
+       (NOT REGEXP_CONTAINS(co.country_code, {{ params.param_country_accrual }}) AND REGEXP_CONTAINS(LOWER(co.term_frequency), r'quarterly') AND ol.month IN (SELECT month FROM quarter_months)) OR
+       (NOT REGEXP_CONTAINS(co.country_code, {{ params.param_country_accrual }}) AND REGEXP_CONTAINS(LOWER(co.term_frequency), r'annually|one time') AND ol.month IN (SELECT month FROM year_months))
      )
    GROUP BY ALL
  )
