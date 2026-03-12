@@ -1,0 +1,99 @@
+name: rb_valid_standard_terms
+table_description: |
+  This table filters and aggregates valid contract terms for rebate calculations, ensuring only active terms are included.
+  ### Key
+
+  PK: Not explicitly defined, likely a composite key of `contract_term_id` + `contract_id` + `sup_id` + `sku`
+
+  ### Partitioning column
+
+  ### Sources
+
+  - `fulfillment-dwh-production.cl_dmart.rb_orderline_sku`
+  - `fulfillment-dwh-production.cl_dmart.rb_products`
+  - `fulfillment-dwh-production.cl_dmart.rb_contract_info`
+  - `fulfillment-dwh-production.curated_data_shared_coredata.global_entities`
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This is an incremental table. The last month data are updated/appended with each run (first day of every month).
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - contract_term_id: |
+      The unique identifier for each contract term. It links to the specific terms under which the rebate is calculated and applied to a contract.
+  - contract_id: |
+      The identifier for the contract. This represents the overall agreement under which
+      the rebate terms are defined.
+  - sup_id: |
+      The identifier for the supplier associated with the rebate calculation.
+      This connects the rebate calculation to a specific supplier.
+  - sku: |
+      The Stock Keeping Unit (SKU) that identifies the product involved in the rebate calculation.
+      Each SKU could have different rebate terms and amounts.
+  - order_id: |
+      The unique identifier for an order in the rebate calculation process.
+      This column is used to track rebates at the order level.
+  - country_code: |
+      The code representing the country where the rebate terms are applied.
+      Different countries may have distinct rebate terms, and this helps to distinguish them.
+  - global_entity_id: |
+      The identifier for the global entity associated with the rebate.
+      It helps in managing cross-border or multi-country rebate terms.
+  - valid_rebate: |
+      A flag indicating whether the rebate term is valid.
+      It is used to determine if the rebate term should be applied based on the logic defined in the query.
+  - rebate_amount: |
+      The calculated rebate amount for the specific combination of contract, SKU, and other parameters.
+      This column contains the final monetary value of the rebate.
+  - rebate_percentage: |
+      The percentage rate applied to calculate the rebate.
+      This could be derived from contract terms and specific SKU or order-level conditions.
+  - rebate_start_date: |
+      The start date of the rebate period. This defines the beginning of the time frame when the rebate is applicable.
+  - rebate_end_date: |
+      The end date of the rebate period. This defines the end of the time frame when the rebate is applicable.
+  - rebate_frequency: |
+      The frequency with which the rebate is applied (e.g., monthly, quarterly, annually). It helps to define the cadence of the rebate calculation.
+  - rebate_type: |
+      The type of rebate being applied (e.g., volume rebate, growth rebate). This categorizes different rebate types based on supplier agreements.
+  - valid_from: |
+      The date from which the rebate is considered valid. This is typically set based on contract terms and business rules.
+  - valid_to: |
+      The date until which the rebate is valid. This ensures the rebate is applied within the valid period as defined by the supplier and contract.
+  - currency_code: |
+      The currency in which the rebate amount is calculated. This is particularly important for international rebates that may involve multiple currencies.
+  - month: |
+      The month for which the rebate is being calculated
+
+dependencies:
+  - rb_products
+  - rb_contract_info
+  - rb_monthly_sku_amount
+  - rb_orderline_sku
+template_params:
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo"'
+  distribution_param_global_entity_id: '"HF_EG|PY_CL|FP_SG|NP_HU|TB_JO|PY_AR|PY_PE|TB_AE|YS_TR|GV_UA|GV_IT|TB_BH|TB_OM|FP_HK|FP_PH|AP_PA|PY_PY|PY_BO"'
+  param_country_code_accrual: '"tr"'
+is_stream: true
+backfill_chunks:
+  is_enabled: true
+time_partitioning: month
+copy_partitions:
+  partition_dates_sql: rb_get_updated_partitions.sql
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu

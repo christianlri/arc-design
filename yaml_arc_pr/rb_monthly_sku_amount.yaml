@@ -1,0 +1,76 @@
+name: rb_monthly_sku_amount
+table_description: |
+  This table aggregates monthly net and gross amounts for each SKU, based on delivered and returned quantities, incorporating product details for further analysis.  It receives data as an INSERT statement rather than a CREATE statement.
+
+  ### Key
+
+  Not explicitly defined, likely a composite key based on `country_code`, `sup_id`, `sku`, and `received_local_month`.
+
+  ### Partitioning column
+  received_local_month
+
+  ### Sources
+
+  - `fulfillment-dwh-production.cl_dmart.rb_orderline_sku`
+  - `fulfillment-dwh-production.cl_dmart.rb_products`
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  Data is incrementally updated based on monthly based execution frequency of the process inserting into the table. Only new or modified records relative to the last month's calculations are appended or updated.
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - country_code: |
+      Two-letter country code.
+  - sup_id: |
+      Supplier ID.
+  - sku: |
+      Stock Keeping Unit (SKU).
+  - brand_name: |
+      Brand name of the product.
+  - categ_level_one: |
+      First level of product category.
+  - categ_level_two: |
+      Second level of product category.
+  - categ_level_three: |
+      Third level of product category.
+  - categ_level_four: |
+      Fourth level of product category.
+  - barcodes: |
+      Product barcodes.
+  - received_local_month: |
+      Month of the order/return, based on the local timestamp.
+  - delivered_net_amount: |
+      Total net amount of delivered products.
+  - returned_net_amount: |
+      Total net amount of returned products.
+  - delivered_gross_amount: |
+      Total gross amount of delivered products.
+  - returned_gross_amount: |
+      Total gross amount of returned products.
+
+is_stream: true
+backfill_chunks:
+  is_enabled: true
+time_partitioning: received_local_month
+copy_partitions:
+  partition_dates_sql: rb_get_updated_partitions.sql
+dependencies:
+  - rb_orderline_sku
+  - rb_products
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu
