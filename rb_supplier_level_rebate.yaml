@@ -1,0 +1,45 @@
+name: rb_supplier_level_rebate
+table_description: |
+  This table calculates supplier-level rebates rebate , by aggregating over the contracts for each supplier based on trading terms.
+
+  ### Key
+
+  PK:  Not explicitly defined, likely a composite key based on `global_entity_id`, `global_supplier_id`, `trading_term_name`, `contract_id`and potentially other fields.
+
+  ### Partitioning column
+
+  ### Sources
+
+  - `fulfillment-dwh-production.cl_dmart.rb_sku_line_rebate`
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This table is re-created entirely every month with each run of `rebate-calculator-v1` DAG.
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+dependencies:
+  - rb_sku_line_rebate
+is_stream: true
+backfill_chunks:
+  is_enabled: true
+time_partitioning: month
+copy_partitions:
+  partition_dates_sql: rb_get_updated_partitions.sql
+template_params:
+  param_global_entity_id: ['HF_EG','PY_CL','FP_SG', 'FP_TH', 'NP_HU', 'GV_ES', 'TB_JO', 'TB_KW', 'PY_AR', 'PY_PE', 'TB_AE', 'TB_QA', 'YS_TR', 'GV_UA', 'GV_IT', 'TB_BH', 'TB_OM', 'FP_HK', 'FP_PH', 'HS_SA', 'AP_PA',' PY_PY', 'PY_BO', 'EF_GR']
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu

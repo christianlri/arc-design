@@ -1,0 +1,316 @@
+name: rb_line_rebate_retro
+table_description: |
+  This table identifies contracts updated post-expiration to calculate the incremental rebate delta (New Rate - Old Rate). This delta is then applied retroactively across the 'impact months'—the period from the new contract's intended start until the date the system was officially updated.
+
+  ### Key
+
+  PK:  Not explicitly defined, likely a composite key based on `sku`, `order_id`, `global_entity_id`, `sup_id`and potentially other fields.
+
+  ### Partitioning column
+
+  month
+
+  ### Sources
+
+  - `fulfillment-dwh-production.cl_dmart.rb_valid_standard_terms_retro`
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This is an incremental table. The last month data is appended with each run with each run of `rebate-calculator-v1` DAG.
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - term_bucket: |
+      Indicates the term type, set as 'standard' for this query.
+  - insert_date: |
+      Timestamp capturing the datetime of record insertion.
+  - month: |
+      The month for which the rebate is being calculated, set to the previous month.
+  - global_entity_id: |
+      Unique identifier for the global entity associated with the rebate.
+  - country_code: |
+      Code representing the country of the entity.
+  - country: |
+      Name of the country associated with the global entity.
+  - global_supplier_id: |
+      Unique identifier for the supplier at the global level.
+  - supplier_name: |
+      Name of the supplier.
+  - finance_system_id: |
+      Identifier for the supplier within the finance system.
+  - sup_id: |
+      Supplier identifier used internally in the rebate process.
+  - unit_of_measure: |
+      The unit in which the SKU quantities are measured.
+  - trading_term_name: |
+      The name of the trading term applied.
+  - trading_term_type: |
+      The type of trading term applied (e.g., percentage, absolute).
+  - rebate_term_value: |
+      The value associated with the rebate term.
+  - term_value_type: |
+      Specifies the type of value, such as absolute or percentage.
+  - term_start_date: |
+      Start date of the trading term validity period.
+  - term_end_date: |
+      End date of the trading term validity period.
+  - calculated_term_start_date: |
+      Calculated start date for the term based on applicable logic.
+  - calculated_term_end_date: |
+      Calculated end date for the term based on applicable logic.
+  - term_applicability: |
+      Indicates the scope of the term, such as SKU-level or PO-level applicability.
+  - term_frequency: |
+      Frequency at which the term is applied (e.g., monthly, quarterly).
+  - rebate_currency: |
+      Currency in which the rebate is calculated.
+  - term_currency: |
+      Currency in which the trading term is defined.
+  - contract_id: |
+      Identifier for the contract associated with the rebate.
+  - opp_id: |
+      Opportunity identifier associated with the rebate calculation.
+  - account_id: |
+      Identifier for the account related to the rebate.
+  - account_owner: |
+      Owner of the account in the system.
+  - contract_startdate: |
+      Start date of the contract associated with the rebate.
+  - contract_enddate: |
+      End date of the contract associated with the rebate.
+  - contract_effective_enddate: |
+      Effective end date of the contract, considering possible extensions.
+  - contract_status: |
+      Status of the contract (e.g., active, expired).
+  - contract_term_type: |
+      Type of contract term associated with the rebate.
+  - contract_term_id: |
+      Identifier for the specific contract term.
+  - opp_term_id: |
+      Opportunity term identifier for mapping terms to opportunities.
+  - source_table: |
+      Source table used for extracting the rebate data.
+  - warehouse_type: |
+      Type of warehouse involved in the transaction (e.g., Dmart).
+  - term_brand_name: |
+      Brand name associated with the trading term.
+  - term_pim_brand_id: |
+      PIM (Product Information Management) brand identifier for the trading term.
+  - term_brand_category_name: |
+      Category name of the brand associated with the term.
+  - order_id: |
+      Unique identifier for the order.
+  - po_id: |
+      Purchase order identifier associated with the rebate calculation.
+  - received_local_time: |
+      Timestamp of when the goods were received locally.
+  - sku: |
+      Stock Keeping Unit (SKU) identifier for the product.
+  - sku_brand_name: |
+      Brand name associated with the SKU.
+  - sku_categ_level_one: |
+      First level of SKU categorization.
+  - sku_categ_level_two: |
+      Second level of SKU categorization.
+  - sku_level_three: |
+      Third level of SKU categorization.
+  - sku_level_four: |
+      Fourth level of SKU categorization.
+  - sku_level_five: |
+      Fifth level of SKU categorization.
+  - sku_level_six: |
+      Sixth level of SKU categorization.
+  - gross_cost_without_vat: |
+      Gross cost of the SKU excluding VAT.
+  - gross_cost: |
+      Gross cost of the SKU including VAT.
+  - delivered_quantity: |
+      Quantity of the SKU delivered.
+  - returned_quantity: |
+      Quantity of the SKU returned.
+  - trade_cost: |
+      Trade cost associated with the SKU.
+  - fixed_discount: |
+      Fixed discount applied to the SKU.
+  - extra_discount: |
+      Extra discount applied to the SKU.
+  - extra_vat: |
+      Additional VAT applied to the SKU.
+  - internal_tax: |
+      Internal tax applicable to the SKU.
+  - order_type: |
+      Type of order, such as standard or promotional.
+  - tier_term_rebate_type: |
+      Type of rebate associated with tiered terms.
+  - tier_term_rebate: |
+      Rebate value for tiered terms.
+  - tier_term_threshold: |
+      Threshold value for tiered rebate application.
+  - tier_term_number: |
+      Tier number for tiered rebate application.
+  - calc_gross_delivered: |
+      Calculated gross value for delivered quantities.
+  - calc_gross_return: |
+      Calculated gross value for returned quantities.
+  - calc_net_delivered: |
+      Calculated net value for delivered quantities.
+  - calc_net_return: |
+      Calculated net value for returned quantities.
+  - sup_valid_gross_purchase: |
+      Supplier-level validated gross purchase amount.
+  - sup_valid_gross_return: |
+      Supplier-level validated gross return amount.
+  - sup_valid_net_purchase: |
+      Supplier-level validated net purchase amount.
+  - sup_valid_net_return: |
+      Supplier-level validated net return amount.
+  - sup_term_valid_gross_purchase: |
+      Validated gross purchase amount at supplier and term levels.
+  - sup_term_valid_gross_return: |
+      Validated gross return amount at supplier and term levels.
+  - sup_term_valid_net_purchase: |
+      Validated net purchase amount at supplier and term levels.
+  - sup_term_valid_net_return: |
+      Validated net return amount at supplier and term levels.
+  - rebate: |
+      Rebate value for the specific term.
+  - warehouse_id: |
+      Identifier for the warehouse.
+  - barcodes: |
+      Barcodes associated with the SKU.
+  - fixing_condition: |
+      String representation of any fixing conditions applied.
+  - reason: |
+      Reason associated with any adjustments or validations.
+  - term_comments: |
+      Comments associated with the trading term.
+  - sku_name: |
+      Name of the SKU.
+  - ordered_quantity: |
+      Quantity ordered for the SKU.
+  - warehouse_name: |
+      Name of the warehouse.
+  - excise_tax: |
+      Excise tax is a type of indirect tax levied on the sale or use of particular goods.
+  - fixed_vat: |
+      Absolute amount of VAT that's charged.
+  - fixed_vat_percentage: |
+      This is simply the set percentage rate for Value Added Tax (VAT).
+dependencies:
+  - rb_valid_standard_terms_retro
+is_stream: true
+backfill_chunks:
+  is_enabled: true
+time_partitioning: month
+copy_partitions:
+  partition_dates_sql: rb_get_updated_partitions.sql
+create_shared_view: true
+filter_by_entity: true
+entity_id_column: global_entity_id
+columns:
+  - term_bucket
+  - insert_date
+  - month
+  - global_entity_id
+  - country_code
+  - country
+  - global_supplier_id
+  - supplier_name
+  - finance_system_id
+  - sup_id
+  - unit_of_measure
+  - trading_term_name
+  - trading_term_type
+  - rebate_term_value
+  - term_value_type
+  - term_start_date
+  - term_end_date
+  - calculated_term_start_date
+  - calculated_term_end_date
+  - term_applicability
+  - term_frequency
+  - rebate_currency
+  - term_currency
+  - contract_id
+  - opp_id
+  - account_id
+  - account_owner
+  - contract_startdate
+  - contract_enddate
+  - contract_effective_enddate
+  - contract_status
+  - contract_term_type
+  - contract_term_id
+  - opp_term_id
+  - source_table
+  - warehouse_type
+  - term_brand_name
+  - term_pim_brand_id
+  - term_brand_category_name
+  - order_id
+  - po_id
+  - received_local_time
+  - sku
+  - sku_brand_name
+  - sku_categ_level_one
+  - sku_categ_level_two
+  - sku_level_three
+  - sku_level_four
+  - sku_level_five
+  - sku_level_six
+  - gross_cost_without_vat
+  - gross_cost
+  - delivered_quantity
+  - returned_quantity
+  - trade_cost
+  - fixed_discount
+  - extra_discount
+  - extra_vat
+  - internal_tax
+  - order_type
+  - tier_term_rebate_type
+  - tier_term_rebate
+  - tier_term_threshold
+  - tier_term_number
+  - calc_gross_delivered
+  - calc_gross_return
+  - calc_net_delivered
+  - calc_net_return
+  - sup_valid_gross_purchase
+  - sup_valid_gross_return
+  - sup_valid_net_purchase
+  - sup_valid_net_return
+  - sup_term_valid_gross_purchase
+  - sup_term_valid_gross_return
+  - sup_term_valid_net_purchase
+  - sup_term_valid_net_return
+  - rebate
+  - warehouse_id
+  - barcodes
+  - fixing_condition
+  - reason
+  - term_comments
+  - sku_name
+  - ordered_quantity
+  - warehouse_name
+  - excise_tax
+  - fixed_vat
+  - fixed_vat_percentage
+template_params:
+  distribution_param_global_entity_id: '"HF_EG|PY_CL|FP_SG|NP_HU|TB_JO|PY_AR|PY_PE|TB_AE|YS_TR|GV_UA|GV_IT|TB_BH|TB_OM|FP_HK|FP_PH|AP_PA|PY_PY|PY_BO|EF_GR"'
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu

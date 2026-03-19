@@ -1,0 +1,189 @@
+name: rb_contract_info
+table_description: |
+  This table integrates contracts details, opportunity terms, and contract terms with supplier-level and account-level data. It serves as the single source for all active and relevant trading term conditions used in rebate calculations.
+
+  ### Key
+
+  PK: Not explicitly defined, likely a composite key based on `global_supplier_id`, `global_entity_id`, and a term ID (`contract_term_id` or `opp_term_id`).
+
+  ### Partitioning column
+
+  None.
+
+  ### Sources
+
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.contract`: Formal contract header details.
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.srm_contracttradingterm__c`: Formal contract trading term details.
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.srm_contracttradingtermtier__c`: Tiered terms details for contracts.
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.opportunity`: Informal agreement header details.
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.srm_opportunitytradingterm__c`: Informal agreement trading term details.
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.account`: Supplier account information.
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.user`: Account owner (user) information.
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared_salesforce_srm }}.brand__c`: Brand mapping data.
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This is an incremental table. The last month data are updated/appended with each run (first day of every month).
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - contract_id: |
+      Salesforce ID of the formal contract. NULL for informal agreements (opportunities).
+  - opp_id: |
+      Salesforce ID of the opportunity (informal agreement). NULL for formal contracts.
+  - term_currency: |
+      The ISO currency code defined on the trading term.
+  - global_supplier_id: |
+      Unique identifier for the supplier (GSID), ensuring global uniqueness across all entities.
+  - global_entity_id: |
+      Unique identifier for the entity (e.g., 'FP_SG') associated with the contract.
+  - contract_status: |
+      The status of the contract or opportunity (e.g., 'Active', 'Active - Extended', 'Accepted').
+  - contract_startdate: |
+      The start date of the main contract or opportunity.
+  - contract_enddate: |
+      The end date of the main contract or opportunity.
+  - contract_effective_enddate: |
+      The effective end date of the contract, typically capturing extensions. NULL for opportunities.
+  - contract_term_id: |
+      Salesforce ID for the specific trading term if linked to a formal contract.
+  - opp_term_id: |
+      Salesforce ID for the specific trading term if linked to an opportunity.
+  - unit_of_measure: |
+      The unit used to measure the term (e.g., 'Volume', 'Value').
+  - trading_term_name: |
+      The full name of the trading term (e.g., 'Progressive Rebate').
+  - trading_term_type: |
+      The type of the trading term (e.g., 'Rebate').
+  - term_value_type: |
+      The type of value defined on the term (e.g., 'Percentage', 'Absolute').
+  - rebate_term_value: |
+      The value/rate of the rebate defined on the term before tiering (e.g., 5, 0.5).
+  - term_applicability: |
+      Defines the scope of products the term applies to (e.g., 'Brand', 'Category', 'All Master Product').
+  - term_frequency: |
+      The frequency used for reconciliation/measurement (e.g., 'Monthly', 'Quarterly', 'Annually').
+  - waive_condition__c: |
+      Salesforce field indicating if a condition for waiving is applied (e.g., 'First Number of Months').
+  - waive_value__c: |
+      The value associated with the waiver condition (e.g., number of months).
+  - term_start_date: |
+      The official start date of the specific trading term.
+  - term_start_date_adjusted: |
+      The effective start date of the term, adjusted if a 'waive' condition is applied.
+  - valid_terms: |
+      A boolean flag indicating if the term is considered valid/active for the current reporting month.
+  - term_end_date: |
+      The official end date of the specific trading term.
+  - term_brand_name: |
+      The name of the Brand associated with the term, if applicable.
+  - term_comments: |
+      Additional remarks or details regarding the trading term.
+  - term_pim_brand_id: |
+      The PIM Brand ID (UUID) associated with the term for easier joining.
+  - brand_category_pim: |
+      The PIM ID of the Brand or Category the term is applicable to.
+  - term_brand_category_name: |
+      The name of the Brand or Category the term is applicable to.
+  - country_code: |
+      Two-letter alpha code identifying the country (from the Account table).
+  - country: |
+      Full name of the country (from the Account table).
+  - supplier_name: |
+      The name of the supplier (from the Account table).
+  - finance_system_id: |
+      The primary supplier finance system ID, consolidated from two potential fields.
+  - sup_id: |
+      The Supplier Portal ID (SupID) for the supplier.
+  - account_id: |
+      Salesforce ID of the Supplier Account.
+  - contract_term_type: |
+      Categorization of the agreement type ('Informal' for opps, or the type from the contract).
+  - account_owner: |
+      The username of the Salesforce account owner.
+  - trading_term_cluster: |
+      A logical grouping of the trading term type (e.g., 'progressive_terms', 'standard_terms').
+  - tier_term_rebate_type: |
+      Type of rebate value for the specific tier (e.g., 'Percentage', 'Absolute').
+  - tier_term_rebate: |
+      The rebate rate or amount for the specific tier.
+  - tier_term_threshold: |
+      The required sales threshold value (absolute amount or percentage) to hit this tier.
+  - tier_thresholdtype: |
+      Type of threshold requirement (e.g., 'Absolute', 'Percentage').
+  - tier_term_number: |
+      The sequential number of the tier (e.g., 1, 2, 3).
+  - calculated_against: |
+      The period against which the threshold is measured (e.g., 'Same Period Last Year').
+create_shared_view: true
+filter_by_entity: true
+entity_id_column: global_entity_id
+columns:
+  - contract_id
+  - opp_id
+  - term_currency
+  - global_supplier_id
+  - global_entity_id
+  - contract_status
+  - contract_startdate
+  - contract_enddate
+  - contract_effective_enddate
+  - contract_term_id
+  - opp_term_id
+  - unit_of_measure
+  - trading_term_name
+  - trading_term_type
+  - term_value_type
+  - rebate_term_value
+  - term_applicability
+  - term_frequency
+  - waive_condition__c
+  - waive_value__c
+  - term_start_date
+  - term_start_date_adjusted
+  - valid_terms
+  - term_end_date
+  - term_brand_name
+  - term_comments
+  - term_pim_brand_id
+  - brand_category_pim
+  - term_brand_category_name
+  - country_code
+  - country
+  - supplier_name
+  - finance_system_id
+  - sup_id
+  - account_id
+  - contract_term_type
+  - account_owner
+  - trading_term_cluster
+  - tier_term_rebate_type
+  - tier_term_rebate
+  - tier_term_threshold
+  - tier_thresholdtype
+  - tier_term_number
+  - calculated_against
+template_params:
+  param_global_entity_id: '"HF_EG|PY_CL|FP_SG|FP_TH|NP_HU|GV_ES|TB_JO|TB_KW|TB_OM|PY_AR|PY_PE|TB_AE|TB_QA|YS_TR|GV_UA|GV_IT|TB_BH|FP_HK|FP_PH|HS_SA|AP_PA|PY_PY|PY_BO|EF_GR"'
+is_stream: true
+backfill_chunks:
+  is_enabled: true
+copy_partitions:
+  partition_dates_sql: rb_get_updated_partitions.sql
+time_partitioning: month
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu

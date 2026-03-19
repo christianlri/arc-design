@@ -1,0 +1,141 @@
+name: rb_products
+table_description: |
+  This table aggregates all product-related information, including country, SKU, supplier, and warehouse-level data. It is essential for rebate calculations.
+
+  ### Key
+
+  PK: `sku` + `global_entity_id` + `country_code` + `sup_id`
+
+  ### Partitioning column
+
+  `master_created_at`
+
+  ### Sources
+
+  - `{{ params.project_id }}.{{ params.dataset.cl }}.qc_catalog_products`: Source for core product and category data.
+  - `fulfillment-dwh-production.curated_data_shared_dmart.pim_product`: Source for preferred PIM product details (UUIDs).
+  - `{{ params.project_id }}.{{ params.dataset.curated_data_shared }}.products_suppliers`: Source for product-to-supplier and warehouse mapping.
+  - `dh-darkstores-live.cl_data_science_qcommerce.pim_region_entity_mapping`: Source for mapping global entities to PIM region codes.
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This table is re-created entirely with each run of DMART's `rebate-calculator-v1` DAG.
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - sku: |
+      SKU of the product.
+  - sku_name: |
+      Name of the product corresponding to the SKU.
+  - pim_product_id: |
+      Unique PIM (Product Information Management) identifier for the master product.
+  - global_entity_id: |
+      Identifier for the global entity, e.g., 'PY_UY' for PedidosYa Uruguay.
+  - country_code: |
+      Two-letter alpha code identifying the country, e.g., 'uy' for Uruguay.
+  - brand_name: |
+      Brand name of the product.
+  - categ_level_one: |
+      Master category name level one for the product.
+  - categ_level_two: |
+      Master category name level two for the product.
+  - categ_level_three: |
+      Master category name level three for the product.
+  - categ_level_four: |
+      Master category name level four for the product.
+  - categ_level_five: |
+      Master category name level five for the product.
+  - categ_level_six: |
+      Master category name level six for the product.
+  - categ_level_seven: |
+      Master category name level seven for the product.
+  - categ_level_eight: |
+      Master category name level eight for the product.
+  - categ_level_nine: |
+      Master category name level nine for the product.
+  - categ_level_ten: |
+      Master category name level ten for the product.
+  - categ_level_one_pim_id: |
+      Master category ID level one for the product.
+  - categ_level_two_pim_id: |
+      Master category ID level two for the product.
+  - categ_level_three_pim_id: |
+      Master category ID level three for the product.
+  - categ_level_four_pim_id: |
+      Master category ID level four for the product.
+  - categ_level_five_pim_id: |
+      Master category ID level five for the product.
+  - categ_level_six_pim_id: |
+      Master category ID level six for the product.
+  - categ_level_seven_pim_id: |
+      Master category ID level seven for the product.
+  - categ_level_eight_pim_id: |
+      Master category ID level eight for the product.
+  - categ_level_nine_pim_id: |
+      Master category ID level nine for the product.
+  - categ_level_ten_pim_id: |
+      Master category ID level ten for the product.
+  - barcodes: |
+      Barcodes associated with the product.
+  - chain_product_created_at_utc: |
+      Timestamp when the product was created at the chain level (from `qc_catalog_products`).
+  - catalog_master_product_id: |
+      The ID of the master product in the catalog system.
+  - product_name: |
+      The product's name (likely the primary/untranslated name).
+  - product_name_local: |
+      The localized product name.
+  - product_image_url: |
+      URL for the product image.
+  - is_bundle: |
+      Boolean flag indicating if the product is sold as a bundle.
+  - catalog_chain_id: |
+      ID of the catalog chain.
+  - catalog_chain_name: |
+      Name of the catalog chain.
+  - vat_rate: |
+      The Value Added Tax (VAT) rate applicable to the product.
+  - master_created_at: |
+      Timestamp when the master product data was created. Used for table partitioning.
+  - region_code: |
+      The PIM region code mapped to the global entity ID.
+  - sup_id: |
+      Supplier ID providing the product.
+  - supplier_name: |
+      Name of the preferred supplier.
+  - warehouse_id: |
+      ID of the warehouse where the product is stocked.
+  - store_id: |
+      Identifier of the specific store associated with the product.
+  - start_date: |
+      Date when the product started being supplied by the preferred warehouse.
+  - is_dmart: |
+      Boolean indicating whether the product belongs to a DMart warehouse.
+  - pim_region_id: |
+      The PIM region code used for matching with the `pim_product` table.
+  - pim_brand_id: |
+      UUID (Unique Universal Identifier) for the brand from PIM.
+  - pim_category_id: |
+      UUID for the category from PIM.
+  - brand_name_local: |
+      Local brand name of the product.
+  - categories_all_pim_ids_norm: |
+      An array of all unique, normalized PIM category IDs associated with the product, aggregated from all category levels.
+template_params:
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr"'
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu
