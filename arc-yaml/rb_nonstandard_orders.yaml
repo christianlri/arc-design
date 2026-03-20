@@ -45,7 +45,7 @@ columns_description:
 dependencies:
   - rb_purchase_orders
 template_params:
-  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr"'
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr"|ec'
   param_inbounded_country_code: '"ar|tr"'
 is_stream: true
 backfill_chunks:
