@@ -62,7 +62,7 @@ dependencies:
   - rb_products
 template_params:
   fixing_po_country_code: '"kw"'
-  stock_param_country_code: '"kw|ae|ua|sa"'
+  stock_param_country_code: '"kw|ae|ua|sa"|ec'
   exclude_service_warehouses_param: '"04e9f397-cd50-4f6c-8714-fa0f96b159fa|9cbe276c-9998-4cd6-8270-60eeeb3d3cf6|b02b35f5-5601-45d5-aa3c-7fdd074d746e|efd5e5cc-03dd-4c76-b8f2-7e2bc7f5ffbb|3d543720-f6af-4d07-a148-2d619adf39a0|a4006a22-ffaa-40bf-993c-929d30eaaf7b|902035cd-0d3d-4d23-90e2-7e6fa753fac1|5e71846a-2168-4fef-ba13-5f3e986b91f4|1376e28e-40a0-41ed-93f0-1af277793910"'
 is_stream: true
 backfill_chunks:
