@@ -177,7 +177,7 @@ dependencies:
   - rb_products
   - rb_contract_info
 template_params:
-  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr"'
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr"|pk'
 is_stream: true
 backfill_chunks:
   is_enabled: true
