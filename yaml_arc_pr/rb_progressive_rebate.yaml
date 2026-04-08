@@ -178,6 +178,7 @@ dependencies:
   - rb_contract_info
 template_params:
   param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo"'
+  param_progressive_vat_country_code: '"bo"'
 is_stream: true
 backfill_chunks:
   is_enabled: true

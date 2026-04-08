@@ -157,7 +157,11 @@ monthly_sku_calculations AS (
     p.pim_category_id,
     p.sku_created_at,
     DATE_TRUNC(oss.received_local_time, MONTH) AS received_local_month,
-    IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0) AS net_amount,
+    CASE
+      WHEN REGEXP_CONTAINS(oss.country_code, {{ params.param_progressive_vat_country_code }})
+      THEN IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0)
+      ELSE IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost_without_vat AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0)
+    END AS net_amount,
     IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.delivered_quantity AS INT64)), 0) - IFNULL(SUM(CAST(oss.gross_cost AS FLOAT64) * CAST(oss.returned_quantity AS INT64)), 0) AS gross_amount
   FROM `{{ params.project_id }}.{{ params.dataset.cl }}.rb_orderline_sku` AS oss
   LEFT JOIN param_supplier_mapping_cte AS ps
