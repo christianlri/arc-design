@@ -433,8 +433,15 @@ sku_sup_aggregated_data AS (
              WHEN ad.term_frequency = 'Quarterly' THEN ad.sum_net_amount_current_quarter_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN ad.sum_net_amount_current_year_sup_term - ad.tier_term_threshold END
       --PERCENTAGE
-      -- We asume that if the calculated_against field in SRM is not filled then BY DEFAULT is year over year growth vs the term itself 
-      WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against != 'Previous Period' THEN
+      -- If calculated_against is NULL (not filled in SRM), default to YoY growth.
+      -- FIX: previously used != 'Previous Period' which evaluates to NULL in BigQuery
+      -- when calculated_against IS NULL, causing diff_vs_target to silently return NULL.
+      WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against IS NULL THEN
+        CASE WHEN ad.term_frequency = 'Monthly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_month_sup_term , ad.sum_net_amount_prev_year_month_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
+             WHEN ad.term_frequency = 'Quarterly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_quarter_sup_term , ad.sum_net_amount_prev_year_quarter_sup_term)-1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
+             WHEN ad.term_frequency IN ('One time', 'Annually') THEN (SAFE_DIVIDE(ad.sum_net_amount_current_year_sup_term , ad.sum_net_amount_prev_year_sup_term)-1)-SAFE_DIVIDE(ad.tier_term_threshold,100) END
+      --VS SAME PERIOD LAST YEAR
+      WHEN ad.tier_thresholdtype = 'Percentage' AND ad.calculated_against = 'Same Period Last Year' THEN
         CASE WHEN ad.term_frequency = 'Monthly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_month_sup_term , ad.sum_net_amount_prev_year_month_sup_term) - 1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency = 'Quarterly' THEN (SAFE_DIVIDE(ad.sum_net_amount_current_quarter_sup_term , ad.sum_net_amount_prev_year_quarter_sup_term)-1) -SAFE_DIVIDE(ad.tier_term_threshold,100)
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN (SAFE_DIVIDE(ad.sum_net_amount_current_year_sup_term , ad.sum_net_amount_prev_year_sup_term)-1)-SAFE_DIVIDE(ad.tier_term_threshold,100) END
@@ -560,3 +567,9 @@ FROM sup_aggregated_data AS supa
 LEFT JOIN suppliers AS sp
   ON supa.country_code = sp.country_code
   AND supa.sup_id = sp.sup_id
+QUALIFY ROW_NUMBER() OVER (
+  PARTITION BY supa.country_code, supa.sup_id_mapped, supa.contract_term_id, CAST(supa.tier_term_number AS INT64)
+  ORDER BY
+    CASE WHEN supa.sup_id = supa.sup_id_mapped THEN 0 ELSE 1 END ASC,
+    supa.sup_id
+) = 1
