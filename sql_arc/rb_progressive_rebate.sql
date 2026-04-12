@@ -1,12 +1,12 @@
 --The purpose of this table is to calculate progressive_terms at the supplier and trading term level for each country
 {%- if not params.backfill %}
-  {% 
+  {%
     set param_month = (
       data_interval_end.replace(day=1) - macros.dateutil.relativedelta.relativedelta(months=1)
-    ).strftime('%Y-%m-%d') 
+    ).strftime('%Y-%m-%d')
   %}
 {%- elif params.is_backfill_chunks_enabled %}
-  {% 
+  {%
     set param_month = params.backfill_start_date
   %}
 {%- endif %}
@@ -175,22 +175,22 @@ monthly_sku_calculations AS (
     AND DATE_TRUNC(oss.received_local_time, MONTH) >= DATE_TRUNC(DATE_SUB(DATE(dp.param_month), INTERVAL 1 YEAR), YEAR)
   GROUP BY ALL
 ),
-last_two_years AS ( 
+last_two_years AS (
   --basically multiplies purchases per sku lines by times of contract terms that there is per supplier and by times of tier numbers there is per ontract_term
   SELECT
     dp.param_month,
-    dp.current_month, 
-    dp.prev_month, 
-    dp.prev_year_month_start, 
-    dp.current_quarter_start, 
-    dp.prev_quarter_start, 
-    dp.prev_year_quarter_start, 
-    dp.current_quarter_end, 
-    dp.current_year_start, 
-    dp.prev_year_year_start, 
-    dp.current_year_end, 
-    dp.is_end_of_quarter, 
-    dp.is_end_of_year, 
+    dp.current_month,
+    dp.prev_month,
+    dp.prev_year_month_start,
+    dp.current_quarter_start,
+    dp.prev_quarter_start,
+    dp.prev_year_quarter_start,
+    dp.current_quarter_end,
+    dp.current_year_start,
+    dp.prev_year_year_start,
+    dp.current_year_end,
+    dp.is_end_of_quarter,
+    dp.is_end_of_year,
     md.received_local_month,
     md.country_code,
     md.sup_id,
@@ -250,7 +250,7 @@ last_two_years AS (
   SELECT
     lty.* EXCEPT(param_month, current_month, prev_month, prev_year_month_start, current_quarter_start, prev_quarter_start, prev_year_quarter_start, current_quarter_end, current_year_start, prev_year_year_start, current_year_end, is_end_of_quarter, is_end_of_year),
     lty.param_month, lty.current_month, lty.prev_month, lty.prev_year_month_start, lty.current_quarter_start, lty.prev_quarter_start, lty.prev_year_quarter_start, lty.current_quarter_end, lty.current_year_start, lty.prev_year_year_start, lty.current_year_end, lty.is_end_of_quarter, lty.is_end_of_year,
-    
+
     -- Original SKU validation flag
     CASE
       WHEN lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id) THEN '2_valid_brand'
@@ -264,7 +264,7 @@ last_two_years AS (
       ) THEN '5_valid_other_skus'
       ELSE 'not_valid'
     END AS valid_sku_term,
-    
+
     -- APPLYING THE FILTER LOGIC TO ALL WINDOW SUMS:
     SUM(CASE WHEN lty.received_local_month = lty.current_month AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
@@ -277,7 +277,7 @@ last_two_years AS (
             (LOWER(lty.pim_product_id) IN (SELECT sku FROM UNNEST(SPLIT(LOWER(lty.brand_category_pim), ',')) AS sku))
         ))
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_current_month_sup_term,
-    
+
     SUM(CASE WHEN lty.received_local_month = lty.prev_month AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -289,7 +289,7 @@ last_two_years AS (
             (LOWER(lty.pim_product_id) IN (SELECT sku FROM UNNEST(SPLIT(LOWER(lty.brand_category_pim), ',')) AS sku))
         ))
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_prev_month_sup_term,
-    
+
     SUM(CASE WHEN lty.received_local_month = lty.prev_year_month_start AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -301,7 +301,7 @@ last_two_years AS (
             (LOWER(lty.pim_product_id) IN (SELECT sku FROM UNNEST(SPLIT(LOWER(lty.brand_category_pim), ',')) AS sku))
         ))
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_prev_year_month_sup_term,
-    
+
     SUM(CASE WHEN lty.is_end_of_quarter AND lty.received_local_month BETWEEN lty.current_quarter_start AND lty.current_quarter_end AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -313,7 +313,7 @@ last_two_years AS (
             (LOWER(lty.pim_product_id) IN (SELECT sku FROM UNNEST(SPLIT(LOWER(lty.brand_category_pim), ',')) AS sku))
         ))
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_current_quarter_sup_term,
-    
+
     SUM(CASE WHEN lty.is_end_of_quarter AND lty.received_local_month BETWEEN lty.prev_quarter_start AND lty.current_quarter_start AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -325,7 +325,7 @@ last_two_years AS (
             (LOWER(lty.pim_product_id) IN (SELECT sku FROM UNNEST(SPLIT(LOWER(lty.brand_category_pim), ',')) AS sku))
         ))
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_prev_quarter_sup_term,
-    
+
     SUM(CASE WHEN lty.is_end_of_quarter AND lty.received_local_month BETWEEN lty.prev_year_quarter_start AND DATE_TRUNC(DATE_SUB(lty.current_quarter_end, INTERVAL 1 YEAR), MONTH) AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -337,7 +337,7 @@ last_two_years AS (
             (LOWER(lty.pim_product_id) IN (SELECT sku FROM UNNEST(SPLIT(LOWER(lty.brand_category_pim), ',')) AS sku))
         ))
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_prev_year_quarter_sup_term,
-    
+
     SUM(CASE WHEN lty.received_local_month BETWEEN lty.current_year_start AND lty.current_month AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -349,7 +349,7 @@ last_two_years AS (
             (LOWER(lty.pim_product_id) IN (SELECT sku FROM UNNEST(SPLIT(LOWER(lty.brand_category_pim), ',')) AS sku))
         ))
     ) THEN lty.net_amount ELSE 0 END) OVER (PARTITION BY lty.country_code, lty.sup_id_mapped, lty.contract_term_id, CAST(lty.tier_term_number AS STRING)) AS sum_net_amount_current_year_sup_term,
-    
+
     SUM(CASE WHEN lty.received_local_month BETWEEN lty.prev_year_year_start AND DATE_TRUNC(DATE_SUB(lty.current_month, INTERVAL 1 YEAR), MONTH) AND (
         (REGEXP_CONTAINS(LOWER(lty.term_applicability), r'all master product')) OR
         (lty.term_applicability = 'Brand' AND LOWER(lty.brand_category_pim) = LOWER(lty.pim_brand_id)) OR
@@ -384,9 +384,9 @@ sku_sup_aggregated_data AS (
     ad.tier_thresholdtype,
     ad.tier_term_number,
     ad.rebate_currency,
-    
+
     -- Date/Contract Fields (Using MIN on sku_created_at for grouping)
-    MIN(ad.sku_created_at) AS sku_created_at, 
+    MIN(ad.sku_created_at) AS sku_created_at,
     ad.term_start_date,
     ad.term_end_date,
     ad.contract_enddate,
@@ -405,7 +405,7 @@ sku_sup_aggregated_data AS (
     ad.sum_net_amount_prev_year_quarter_sup_term,
     ad.sum_net_amount_current_year_sup_term,
     ad.sum_net_amount_prev_year_sup_term,
-    
+
     -- Deviation Metrics
     CASE
       WHEN MIN(ad.sku_created_at) IS NULL OR DATE(MIN(ad.sku_created_at)) > ad.prev_year_month_start OR ad.sum_net_amount_prev_month_sup_term <= 0 THEN 0
@@ -432,7 +432,7 @@ sku_sup_aggregated_data AS (
     CASE
     --ABSOLUTE
     -- We asume if its absolute then it should be compared against anything else than the threshold term itself
-      WHEN ad.tier_thresholdtype = 'Absolute' THEN 
+      WHEN ad.tier_thresholdtype = 'Absolute' THEN
         CASE WHEN ad.term_frequency = 'Monthly' THEN ad.sum_net_amount_current_month_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency = 'Quarterly' THEN ad.sum_net_amount_current_quarter_sup_term - ad.tier_term_threshold
              WHEN ad.term_frequency IN ('One time', 'Annually') THEN ad.sum_net_amount_current_year_sup_term - ad.tier_term_threshold END
@@ -463,8 +463,8 @@ sku_sup_aggregated_data AS (
 sup_aggregated_data AS (
   SELECT
     suad.* EXCEPT( sku_created_at, valid_sku_term, prev_year_month_start, calculated_term_start_date, calculated_term_end_date, deviation_month_vs_prev_month_sup_term, deviation_month_vs_prev_year_month_sup_term, deviation_quarter_vs_prev_quarter, deviation_quarter_vs_prev_year, deviation_year_vs_prev_year),
-    suad.sku_created_at, 
-    suad.valid_sku_term, 
+    suad.sku_created_at,
+    suad.valid_sku_term,
     suad.prev_year_month_start,
     suad.calculated_term_start_date,
     suad.calculated_term_end_date,
@@ -522,7 +522,7 @@ SELECT
   supa.tier_term_threshold,
   supa.tier_thresholdtype,
   supa.tier_term_number,
-  
+
   -- Date Fields
   supa.term_start_date,
   supa.term_end_date,
@@ -530,7 +530,7 @@ SELECT
   supa.contract_effective_enddate,
   supa.calculated_term_start_date,
   supa.calculated_term_end_date,
-  -- supa.sku_created_at, -- EXCLUDING 
+  -- supa.sku_created_at, -- EXCLUDING
   supa.prev_year_month_start,
 
   -- Calculated Net Amounts
@@ -542,7 +542,7 @@ SELECT
   supa.sum_net_amount_prev_year_quarter_sup_term,
   supa.sum_net_amount_current_year_sup_term,
   supa.sum_net_amount_prev_year_sup_term,
-  
+
   -- Deviation Metrics
   supa.deviation_month_vs_prev_month_sup_term,
   supa.deviation_month_vs_prev_year_month_sup_term,
@@ -558,11 +558,11 @@ SELECT
   END AS valid_progressive_flag,
   CASE
       WHEN supa.tier_term_rebate_type = 'Absolute' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 THEN supa.tier_term_rebate
-      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency = 'Monthly' THEN 
+      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency = 'Monthly' THEN
           (supa.tier_term_rebate / 100) * supa.sum_net_amount_current_month_sup_term
-      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency = 'Quarterly' THEN 
-          (supa.tier_term_rebate / 100) * supa.sum_net_amount_current_quarter_sup_term 
-      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency IN ('Annually', 'One Time') THEN 
+      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency = 'Quarterly' THEN
+          (supa.tier_term_rebate / 100) * supa.sum_net_amount_current_quarter_sup_term
+      WHEN supa.tier_term_rebate_type = 'Percentage' AND COALESCE(supa.diff_vs_target, 0) > 0 AND supa.rn = 1 AND supa.term_frequency IN ('Annually', 'One Time') THEN
           (supa.tier_term_rebate / 100) * supa.sum_net_amount_current_year_sup_term
       ELSE NULL
   END AS calculated_progressive_rebate,
