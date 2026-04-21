@@ -1,0 +1,196 @@
+name: rb_progressive_rebate
+table_description: |
+  This table calculates progressive trading terms (rebates) at the supplier and trading term tier level for each country. It provides key sales metrics, deviation comparisons, and the final calculated rebate amount to track performance against tiered targets.
+
+  ### Key
+
+  PK: Composite key based on `country_code`, `sup_id`, and `contract_term_id`.
+
+  ### Partitioning column
+
+  None specified.
+
+  ### Sources
+
+  - `fulfillment-dwh-production.curated_data_shared_coredata.global_entities`: Used to get the rebate currency ISO code based on the country code.
+  - `fulfillment-dwh-production.cl_dmart.rb_products`: Used for product master data (SKU info, brand, category, PIM IDs).
+  - `dh-central-salesforce-tech.salesforce_platform_analytics_staging.rb_contract_info_test`: Contains contract and trading term details, including tier information.
+  - `fulfillment-dwh-production.cl_dmart.rb_orderline_sku`: Contains order/sales data at the SKU level, used for calculating net/gross amounts.
+  - `fulfillment-dwh-production.curated_data_shared_dmart.products_suppliers`: Used to retrieve supplier names and finance IDs.
+
+  ### Life cycle
+
+  Stable.
+
+  ### Data freshness
+
+  This is an incremental table. The last month data are updated/appended with each run (first day of every month).
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - country_code: |
+      Two-letter alpha code identifying the country associated with the supplier/term.
+  - sup_id: |
+      Unique identifier for the supplier (often a business-level ID).
+  - principal_supplier_id_mapped: |
+      The ID of the parent/principal supplier used when contract terms must be applied at a group level (for exceptional cases).
+  - sup_id_mapped: |
+      The standardized supplier ID used for contract term calculations, combining individual sup_id values with the mapped parent IDs where necessary.
+  - supplier_name: |
+      The official name of the supplier.
+  - supplier_finance_id: |
+      The supplier's ID used in the finance system.
+  - contract_term_id: |
+      Unique identifier for the specific trading term defined within a contract.
+  - contract_status: |
+      The current status of the contract (e.g., Active, Active - Extended).
+  - term_frequency: |
+      How often the term is measured/calculated (e.g., Monthly, Quarterly, Annually).
+  - calculated_against: |
+      The sales period used as the base for the threshold calculation (e.g., Same Period Last Year, Previous Period).
+  - trading_term_cluster: |
+      The specific cluster of the trading term, which is 'progressive_terms' for this table.
+  - rebate_currency: |
+      The currency in which the rebate is calculated.
+  - term_applicability: |
+      Defines which products the term applies to (e.g., All Master Product, Brand, Category).
+  - valid_terms: |
+      A boolean-like flag indicating if the contract term is currently considered valid for calculation.
+  - valid_sku_term: |
+      A flag detailing how the SKU was matched to the term (e.g., 1_valid_sup, 2_valid_brand).
+  - term_brand_category_name: |
+      The name of the Brand or Category the term is applicable to, if not All Master Product.
+  - tier_term_rebate_type: |
+      The type of rebate value for the tier (e.g., Percentage, Absolute).
+  - tier_term_rebate: |
+      The rebate rate or amount for the tier.
+  - tier_term_threshold: |
+      The required sales threshold value (absolute amount or percentage increase) to hit this tier.
+  - tier_thresholdtype: |
+      Type of threshold requirement (e.g., Absolute value, Percentage growth).
+  - tier_term_number: |
+      The sequential number of the tier within the contract term.
+  - term_start_date: |
+      The official start date of the contract term from the source system.
+  - term_end_date: |
+      The official end date of the contract term from the source system.
+  - contract_enddate: |
+      The end date of the overall contract.
+  - contract_effective_enddate: |
+      The effective end date of the contract, considering extensions.
+  - calculated_term_start_date: |
+      The adjusted start date used for the current calculation period, considering term frequency and effective dates.
+  - calculated_term_end_date: |
+      The adjusted end date used for the current calculation period.
+  - prev_year_month_start: |
+      The start of the equivalent month in the previous year.
+  - sum_net_amount_current_month_sup_term: |
+      Aggregated net sales amount for the current reporting month, filtered by supplier and term applicability.
+  - sum_net_amount_prev_month_sup_term: |
+      Aggregated net sales amount for the previous month, filtered by supplier and term applicability.
+  - sum_net_amount_prev_year_month_sup_term: |
+      Aggregated net sales amount for the same month in the previous year, filtered by supplier and term applicability.
+  - sum_net_amount_current_quarter_sup_term: |
+      Aggregated net sales amount for the current quarter, filtered by supplier and term applicability.
+  - sum_net_amount_prev_quarter_sup_term: |
+      Aggregated net sales amount for the previous quarter, filtered by supplier and term applicability.
+  - sum_net_amount_prev_year_quarter_sup_term: |
+      Aggregated net sales amount for the same quarter in the previous year, filtered by supplier and term applicability.
+  - sum_net_amount_current_year_sup_term: |
+      Aggregated net sales amount for the current year-to-date, filtered by supplier and term applicability.
+  - sum_net_amount_prev_year_sup_term: |
+      Aggregated net sales amount for the previous year-to-date, filtered by supplier and term applicability.
+  - deviation_month_vs_prev_month_sup_term: |
+      Percentage change in net sales (Current Month vs. Previous Month).
+  - deviation_month_vs_prev_year_month_sup_term: |
+      Percentage change in net sales (Current Month vs. Same Month Last Year).
+  - deviation_quarter_vs_prev_quarter: |
+      Percentage change in net sales (Current Quarter vs. Previous Quarter).
+  - deviation_quarter_vs_prev_year: |
+      Percentage change in net sales (Current Quarter vs. Same Quarter Last Year).
+  - deviation_year_vs_prev_year: |
+      Percentage change in net sales (Current Year-to-Date vs. Previous Year-to-Date).
+  - diff_vs_target: |
+      The difference (in absolute value or ratio) between the sales metric and the required tier threshold. A positive value indicates the threshold was met or exceeded.
+  - rn: |
+      Row number used to select the highest met tier for a given contract term. **Value of 1 indicates the highest valid tier.**
+  - valid_progressive_flag: |
+      Final flag: 'valid_progressive_rebate' is set if the tier threshold is met (`diff_vs_target > 0`) AND it is the highest met tier (`rn = 1`).
+  - calculated_progressive_rebate: |
+      The final calculated rebate amount for the highest met tier.
+  - month: |
+      The month for which the rebate is being calculated
+
+create_shared_view: true
+filter_by_entity: true
+entity_id_column: country_code
+columns:
+  - country_code
+  - sup_id
+  - supplier_name
+  - supplier_finance_id
+  - contract_term_id
+  - contract_status
+  - term_frequency
+  - calculated_against
+  - trading_term_cluster
+  - rebate_currency
+  - term_applicability
+  - valid_terms
+  - valid_sku_term
+  - term_brand_category_name
+  - tier_term_rebate_type
+  - tier_term_rebate
+  - tier_term_threshold
+  - tier_thresholdtype
+  - tier_term_number
+  - term_start_date
+  - term_end_date
+  - contract_enddate
+  - contract_effective_enddate
+  - calculated_term_start_date
+  - calculated_term_end_date
+  - prev_year_month_start
+  - sum_net_amount_current_month_sup_term
+  - sum_net_amount_prev_month_sup_term
+  - sum_net_amount_prev_year_month_sup_term
+  - sum_net_amount_current_quarter_sup_term
+  - sum_net_amount_prev_quarter_sup_term
+  - sum_net_amount_prev_year_quarter_sup_term
+  - sum_net_amount_current_year_sup_term
+  - sum_net_amount_prev_year_sup_term
+  - deviation_month_vs_prev_month_sup_term
+  - deviation_month_vs_prev_year_month_sup_term
+  - deviation_quarter_vs_prev_quarter
+  - deviation_quarter_vs_prev_year
+  - deviation_year_vs_prev_year
+  - diff_vs_target
+  - rn
+  - valid_progressive_flag
+  - calculated_progressive_rebate
+  - month
+dependencies:
+  - rb_orderline_sku
+  - rb_products
+  - rb_contract_info
+template_params:
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr"'
+  param_progressive_vat_country_code: '"bo"'
+is_stream: true
+backfill_chunks:
+  is_enabled: true
+time_partitioning: month
+copy_partitions:
+  partition_dates_sql: rb_get_updated_partitions.sql
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu

@@ -1,0 +1,1 @@
+SELECT DATE_TRUNC(DATE_SUB(DATE_TRUNC(DATE('{{ next_ds }}'), MONTH ), INTERVAL 1 DAY), MONTH) AS partition_date;

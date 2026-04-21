@@ -1,0 +1,4 @@
+params:
+  project_id: "YOUR_GCP_PROJECT"
+  param_month: "2025-12-01"
+  param_country_code: "tr"
