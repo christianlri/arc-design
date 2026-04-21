@@ -129,7 +129,7 @@ columns_description:
   - categories_all_pim_ids_norm: |
       An array of all unique, normalized PIM category IDs associated with the product, aggregated from all category levels.
 template_params:
-  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo"'
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr|iq|my|ec"'
 slack:
   channel: #data-hub-qcommerce-alerts-da
   notification_members:

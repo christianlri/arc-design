@@ -1,0 +1,103 @@
+name: rb_progressive_rebate_agg
+table_description: |
+  This table provides a flattened and unpivoted view of progressive rebate performance. It transforms the tier-based structure into a "Long Format" where metrics are grouped by 'col_group' (e.g., Tier Rebates, Performance Analytics, Results).
+
+  ### Key
+  PK: Composite key based on `country_code`, `sup_id`, `contract_term_id`, `month`, and `col_name`.
+
+  ### Sources
+  - `fulfillment-dwh-production.cl_dmart.rb_progressive_rebate`: The base granular tier table.
+
+  ### Life cycle
+  Stable.
+
+  ### Data freshness
+  This is an incremental table. Updated/appended with each run (first day of every month).
+
+  ### Owner
+  - Team: QCommerce Data Analytics - Commercial team
+  - Email: qc_analytics@deliveryhero.com
+
+columns_description:
+  - country_code: |
+      Two-letter alpha code identifying the country associated with the supplier/term.
+  - month: |
+      The month for which the rebate is being calculated.
+  - sup_id: |
+      Unique identifier for the supplier.
+  - sup_id_mapped: |
+      The standardized supplier ID used for contract term calculations.
+  - principal_supplier_id_mapped: |
+      The ID of the parent/principal supplier used for group-level terms.
+  - supplier_name: |
+      The official name of the supplier.
+  - supplier_finance_id: |
+      The supplier's ID used in the finance system.
+  - contract_term_id: |
+      Unique identifier for the specific trading term.
+  - term_frequency: |
+      How often the term is measured (e.g., Monthly, Quarterly, Annually).
+  - calculated_against: |
+      The sales period used as the base (e.g., Same Period Last Year, Previous Period).
+  - rebate_currency: |
+      The currency in which the rebate is calculated.
+  - term_applicability: |
+      Defines which products the term applies to.
+  - term_brand_category_name: |
+      The name of the Brand or Category the term is applicable to.
+  - is_valid_progressive_contract: |
+      Boolean flag: True if the first tier (T1) has both a threshold and rebate defined.
+  - col_group: |
+      The logical category of the metric (e.g., Tier Rebates, Performance Analytics, Results).
+  - col_name: |
+      The specific metric name (e.g., T1, T2, Pace Ratio, Forecast Purchase).
+  - col_order: |
+      Numeric key used to maintain logical sorting order in dashboards.
+  - value_num: |
+      The raw numeric value of the metric.
+  - value_str: |
+      The formatted string representation (includes % symbols and thousands separators).
+
+create_shared_view: true
+filter_by_entity: true
+entity_id_column: country_code
+
+columns:
+  - country_code
+  - month
+  - sup_id
+  - sup_id_mapped
+  - principal_supplier_id_mapped
+  - supplier_name
+  - supplier_finance_id
+  - contract_term_id
+  - term_frequency
+  - calculated_against
+  - rebate_currency
+  - term_applicability
+  - term_brand_category_name
+  - is_valid_progressive_contract
+  - col_group
+  - col_name
+  - col_order
+  - value_num
+  - value_str
+
+dependencies:
+  - rb_progressive_rebate
+
+template_params:
+  param_country_code: '"eg|cl|sg|th|hu|es|jo|kw|ar|ae|qa|pe|tr|ua|it|om|bh|hk|ph|sa|pa|py|bo|gr|iq|my|ec"'
+
+is_stream: true
+time_partitioning: month
+
+slack:
+  channel: #data-hub-qcommerce-alerts-da
+  notification_members:
+    - U03MVNCNQKX # Rafaela Nakamura
+    - U09PM4T1D6K # Rameet Kaur
+    - U026RT1FDD0 # Vipul Agrawal
+    - U031PLMUKNU # Juan Manuel Galindo
+    - U04CRJ9CJR5 # Tatiana Ovchinnikova
+    - U01D6T7L6K3 # Ionut Surdu

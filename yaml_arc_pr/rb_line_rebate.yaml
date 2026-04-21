@@ -305,7 +305,7 @@ columns:
   - fixed_vat
   - fixed_vat_percentage
 template_params:
-  distribution_param_global_entity_id: '"HF_EG|PY_CL|FP_SG|NP_HU|TB_JO|PY_AR|PY_PE|TB_AE|YS_TR|GV_UA|GV_IT|TB_BH|TB_OM|FP_HK|FP_PH"'
+  distribution_param_global_entity_id: '"HF_EG|PY_CL|FP_SG|NP_HU|TB_JO|PY_AR|PY_PE|TB_AE|YS_TR|GV_UA|GV_IT|TB_BH|TB_OM|FP_HK|FP_PH|AP_PA|PY_PY|PY_BO|EF_GR|FP_MY|PY_EC"'
 slack:
   channel: #data-hub-qcommerce-alerts-da
   notification_members:
