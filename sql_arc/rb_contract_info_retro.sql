@@ -43,6 +43,7 @@ inactive_contracts AS (
     DATE_TRUNC(DATE(c.lastmodifieddate), MONTH) AS last_modified_month,
     DATE_TRUNC(c.startdate, MONTH) AS contract_start_date,
     DATE_TRUNC(c.enddate, MONTH) AS contract_end_date,
+    DATE_TRUNC(DATE(c.activateddate), MONTH) AS inactive_activated_date,
     c.country_code,
     c.global_entity_id,
     c.gsid__c AS global_supplier_id,
@@ -64,6 +65,10 @@ inactive_contracts AS (
     ON c.id = ct.srm_contract__c
   WHERE c.status = 'Inactive'
     AND DATE_TRUNC(DATE(c.lastmodifieddate), MONTH) = DATE_TRUNC(DATE('{{ param_month }}'), MONTH)
+  QUALIFY ROW_NUMBER() OVER (
+  PARTITION BY c.gsid__c, ct.global_term_name__c, COALESCE(ct.brand__c, 'N/A'), COALESCE(ct.srm_brandcategory__c, 'N/A'), COALESCE(ct.pim_id__c, 'N/A'), COALESCE(ct.srm_valuetype__c, 'N/A')
+  ORDER BY c.enddate DESC
+  ) = 1
 ),
 
 active_contracts AS (
@@ -71,6 +76,7 @@ active_contracts AS (
     DATE_TRUNC(DATE(c.startdate), MONTH) AS last_modified_month,
     DATE_TRUNC(c.enddate, MONTH) AS contract_end_date,
     DATE_TRUNC(c.startdate, MONTH) AS contract_start_date,
+    DATE_TRUNC(DATE(c.activateddate), MONTH) AS active_activated_date,
     c.country_code,
     c.global_entity_id,
     c.gsid__c AS global_supplier_id,
@@ -98,6 +104,8 @@ contract_diffs AS (
     i.last_modified_month AS inactive_last_modified_month,
     i.contract_end_date AS inactive_contract_end_date,
     a.contract_start_date AS active_contract_start_date,
+    i.inactive_activated_date,
+    a.active_activated_date,
     COALESCE(a.country_code, i.country_code) AS country_code,
     COALESCE(a.global_entity_id, i.global_entity_id) AS global_entity_id,
     COALESCE(a.account_id, i.account_id) AS account_id,
@@ -148,7 +156,13 @@ deep_dive_contracts AS (
   LEFT JOIN brand AS b ON d.brand_id = b.brand_id
   WHERE d.rebate_delta > 0
     -- Ensure we only run this if the update happened LATER than the start date
-    AND d.active_contract_start_date < d.inactive_last_modified_month
+  AND (
+    CASE 
+      WHEN d.inactive_activated_date != d.active_activated_date 
+        THEN d.active_contract_start_date < d.active_activated_date
+      ELSE d.active_contract_start_date < d.inactive_last_modified_month
+    END
+  )
 )
 
 /* FINAL SELECT: Grouping to consolidate multiple overlap months into one row */
